@@ -3,16 +3,16 @@ gsd_state_version: "1.0"
 current_phase: 01
 current_phase_name: Foundation & Project Memory
 status: executing
-stopped_at: Phase 1 context gathered
-last_updated: "2026-09-15T17:13:33.558Z"
+stopped_at: Completed 01-01-PLAN.md
+last_updated: "2026-09-15T17:42:33.166Z"
 last_activity: 2026-09-15
-last_activity_desc: Project initialized (PROJECT, REQUIREMENTS, ROADMAP)
-state_head: e9543638d3472609e08a9789bdbd6c46fe117290
+last_activity_desc: Phase 01 execution started
+state_head: 0e1ecd5565cde2b5f9097a7ad70055485ac530ec
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 8
-  completed_plans: 0
+  completed_plans: 1
   percent: 0
 ---
 
@@ -23,14 +23,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-15)
 
 **Core value:** A reviewer can open the live demo, place a trade, and see a rigorous, trading-aware test effort against that exact flow.
-**Current focus:** Phase 1 — Foundation & Project Memory
+**Current focus:** Phase 01 — Foundation & Project Memory
 
 ## Current Position
 
-Phase: 01 (Foundation & Project Memory) — READY TO EXECUTE
-Plan: 0 of 3 in current phase
+Phase: 01 (Foundation & Project Memory) — EXECUTING
+Plan: 2 of 8
 Status: Ready to execute
-Last activity: 2026-09-15 — Project initialized (PROJECT, REQUIREMENTS, ROADMAP)
+Last activity: 2026-09-15 — Phase 01 execution started
 
 Progress: [░░░░░░░░░░] 0%
 
@@ -49,6 +49,11 @@ Progress: [░░░░░░░░░░] 0%
 | - | - | - | - |
 
 *Updated after each plan completion*
+**Per-Plan Metrics:**
+
+| Plan | Duration | Tasks | Files |
+|------|----------|-------|-------|
+| Phase 01 P01 | 25min | 3 tasks | 30 files |
 
 ## Accumulated Context
 
@@ -61,6 +66,8 @@ Recent decisions affecting current work:
 - [Init]: React+TS / Node+TS / SQLite; Playwright TS for e2e
 - [Init]: Vertical slices — each feature phase ships FE + BE + manual test cases
 - [Init]: Project memory in `wiki/` (Karpathy LLM Wiki pattern)
+- [Phase 01]: TypeScript pinned to ~6.0.3 (not 7.0.2) because typescript-eslint@8.70.0 requires typescript <6.1.0 — Verified via npm view before install; avoids a peer-dependency conflict across all three workspaces
+- [Phase 01]: Fastify 5.12 loggerInstance/logController/LogController API used instead of the deprecated logger:pinoInstance form — Fastify 5 rejects a raw pino instance passed as logger; confirmed against installed .d.ts files
 
 ### Pending Todos
 
@@ -79,6 +86,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-09-15T15:56:29.867Z
-Stopped at: Phase 1 context gathered
-Resume file: .planning/phases/01-foundation-project-memory/01-CONTEXT.md
+Last session: 2026-09-15T17:42:33.080Z
+Stopped at: Completed 01-01-PLAN.md
+Resume file: None
