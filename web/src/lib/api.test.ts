@@ -34,4 +34,43 @@ describe("fetchHealth", () => {
       requestId: "3f0c8a6e-2b1d-4c9e-9a7f-5d4e3c2b1a09",
     } satisfies Partial<ApiError>);
   });
+
+  it("rejects with the ApiError code and requestId parsed from a JSON error body", async () => {
+    const fetchImpl = (async () =>
+      new Response(
+        JSON.stringify({
+          error: { code: "INTERNAL_ERROR", message: "Internal Server Error", requestId: "r-1" },
+        }),
+        { status: 500 },
+      )) as typeof fetch;
+
+    await expect(fetchHealth({ fetchImpl })).rejects.toMatchObject({
+      status: 500,
+      code: "INTERNAL_ERROR",
+      requestId: "r-1",
+    } satisfies Partial<ApiError>);
+  });
+
+  it("falls back to HTTP_<status> and the header request id on a non-JSON error body", async () => {
+    const fetchImpl = (async () =>
+      new Response("Bad Gateway", {
+        status: 502,
+        headers: { "x-request-id": "r-2" },
+      })) as typeof fetch;
+
+    await expect(fetchHealth({ fetchImpl })).rejects.toMatchObject({
+      status: 502,
+      code: "HTTP_502",
+      requestId: "r-2",
+    } satisfies Partial<ApiError>);
+  });
+
+  it("rethrows an aborted signal's error instead of wrapping it as NETWORK_ERROR", async () => {
+    const abortError = new DOMException("aborted", "AbortError");
+    const fetchImpl = (async () => {
+      throw abortError;
+    }) as typeof fetch;
+
+    await expect(fetchHealth({ fetchImpl })).rejects.toBe(abortError);
+  });
 });
