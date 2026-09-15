@@ -3,6 +3,7 @@ import { ApiError, type ApiResult, type HealthResponse } from "./api.js";
 import {
   createHealthPoller,
   HEALTH_POLL_INTERVAL_MS,
+  type PollerTimers,
   type VisibilityAdapter,
 } from "./healthPoller.js";
 
@@ -226,5 +227,109 @@ describe("createHealthPoller", () => {
     await vi.advanceTimersByTimeAsync(200_000);
     expect(fetchHealth).toHaveBeenCalledTimes(1);
     expect(onUpdate).not.toHaveBeenCalled();
+  });
+});
+
+// Browsers throw `TypeError: Illegal invocation` when a native timer
+// function is called with a non-window receiver (WebIDL "this" check).
+// Node's setTimeout/clearTimeout have no such check, so these tests stub
+// the globals with a strict-receiver shim that reproduces the browser rule
+// inside Vitest. See wiki/pages/findings/health-poller-illegal-invocation.md.
+describe("createHealthPoller under the browser timer-receiver rule", () => {
+  let strictSetTimeout: PollerTimers["setTimeout"];
+  let strictClearTimeout: PollerTimers["clearTimeout"];
+
+  beforeEach(() => {
+    vi.useFakeTimers();
+    const fakeSetTimeout = globalThis.setTimeout;
+    const fakeClearTimeout = globalThis.clearTimeout;
+
+    strictSetTimeout = function (this: unknown, handler: () => void, delayMs: number) {
+      if (this !== undefined && this !== globalThis) {
+        throw new TypeError("Illegal invocation");
+      }
+      return fakeSetTimeout(handler, delayMs);
+    };
+    strictClearTimeout = function (this: unknown, handle: ReturnType<typeof setTimeout>) {
+      if (this !== undefined && this !== globalThis) {
+        throw new TypeError("Illegal invocation");
+      }
+      fakeClearTimeout(handle);
+    };
+
+    vi.stubGlobal("setTimeout", strictSetTimeout);
+    vi.stubGlobal("clearTimeout", strictClearTimeout);
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.useRealTimers();
+  });
+
+  it("default timers work when the global timer functions reject a non-global receiver", async () => {
+    const fetchHealth = vi.fn<() => Promise<ApiResult<HealthResponse>>>().mockResolvedValue({
+      data: HEALTH_BODY,
+      requestId: "r-1",
+    });
+    const onUpdate = vi.fn();
+    const visibility = createFakeVisibility(true);
+    const poller = createHealthPoller({ fetchHealth, onUpdate, visibility });
+
+    poller.start();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(onUpdate).toHaveBeenLastCalledWith({ kind: "ok", data: HEALTH_BODY, requestId: "r-1" });
+    expect(onUpdate).not.toHaveBeenCalledWith(expect.objectContaining({ kind: "error" }));
+
+    await vi.advanceTimersByTimeAsync(HEALTH_POLL_INTERVAL_MS);
+    expect(fetchHealth).toHaveBeenCalledTimes(2);
+
+    poller.stop();
+  });
+
+  it("injected timer functions are invoked without a receiver", async () => {
+    const fetchHealth = vi.fn<() => Promise<ApiResult<HealthResponse>>>().mockResolvedValue({
+      data: HEALTH_BODY,
+      requestId: "r-1",
+    });
+    const onUpdate = vi.fn();
+    const visibility = createFakeVisibility(true);
+    const poller = createHealthPoller({
+      fetchHealth,
+      onUpdate,
+      visibility,
+      timers: { setTimeout: strictSetTimeout, clearTimeout: strictClearTimeout },
+    });
+
+    poller.start();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(onUpdate).toHaveBeenLastCalledWith({ kind: "ok", data: HEALTH_BODY, requestId: "r-1" });
+    expect(onUpdate).not.toHaveBeenCalledWith(expect.objectContaining({ kind: "error" }));
+
+    await vi.advanceTimersByTimeAsync(HEALTH_POLL_INTERVAL_MS);
+    expect(fetchHealth).toHaveBeenCalledTimes(2);
+
+    poller.stop();
+  });
+
+  it("refresh() recovers from an error state to ok under the browser receiver rule", async () => {
+    const fetchHealth = vi
+      .fn<() => Promise<ApiResult<HealthResponse>>>()
+      .mockRejectedValueOnce(new ApiError(null, "NETWORK_ERROR", null))
+      .mockResolvedValue({ data: HEALTH_BODY, requestId: null });
+    const onUpdate = vi.fn();
+    const visibility = createFakeVisibility(true);
+    const poller = createHealthPoller({ fetchHealth, onUpdate, visibility });
+
+    poller.start();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(onUpdate).toHaveBeenLastCalledWith({
+      kind: "error",
+      error: expect.any(ApiError),
+    });
+
+    await poller.refresh();
+    expect(onUpdate).toHaveBeenLastCalledWith({ kind: "ok", data: HEALTH_BODY, requestId: null });
+
+    poller.stop();
   });
 });
