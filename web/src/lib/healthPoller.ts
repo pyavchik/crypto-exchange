@@ -21,16 +21,23 @@ export interface HealthPoller {
   isChecking(): boolean;
 }
 
+// The type timerId already uses. `typeof setTimeout`/`typeof clearTimeout`
+// cannot be reused directly for PollerTimers because the Node typings add a
+// promisify member, which arrow-function wrappers cannot satisfy.
+type TimerHandle = ReturnType<typeof setTimeout>;
+
+export interface PollerTimers {
+  setTimeout(handler: () => void, delayMs: number): TimerHandle;
+  clearTimeout(handle: TimerHandle): void;
+}
+
 export interface CreateHealthPollerOptions {
   fetchHealth: (options?: { signal?: AbortSignal }) => Promise<ApiResult<HealthResponse>>;
   onUpdate: (state: HealthState) => void;
   visibility: VisibilityAdapter;
   intervalMs?: number;
   now?: () => number;
-  timers?: {
-    setTimeout: typeof setTimeout;
-    clearTimeout: typeof clearTimeout;
-  };
+  timers?: PollerTimers;
 }
 
 function isAbortError(error: unknown): boolean {
@@ -44,12 +51,29 @@ export function createHealthPoller(options: CreateHealthPollerOptions): HealthPo
     visibility,
     intervalMs = HEALTH_POLL_INTERVAL_MS,
     now = Date.now,
-    timers = { setTimeout, clearTimeout },
+    timers = {
+      // Bare (unqualified) calls to the global functions, looked up lazily
+      // at call time -> the receiver is undefined, never this object. See
+      // the comment on scheduleTimeout/cancelTimeout below for why that
+      // matters.
+      setTimeout: (handler: () => void, delayMs: number) => setTimeout(handler, delayMs),
+      clearTimeout: (handle: TimerHandle) => clearTimeout(handle),
+    },
   } = options;
+
+  // Browsers throw `TypeError: Illegal invocation` when a native timer
+  // function is invoked with a non-window receiver (WebIDL "this" check);
+  // Node has no such check. Copying the two functions out of `timers` here
+  // and calling only these locals (never `timers.setTimeout(...)` /
+  // `timers.clearTimeout(...)`) guarantees every call is an unqualified
+  // plain call, so the receiver is always undefined. See
+  // wiki/pages/findings/health-poller-illegal-invocation.md.
+  const scheduleTimeout = timers.setTimeout;
+  const cancelTimeout = timers.clearTimeout;
 
   let stopped = true;
   let checking = false;
-  let timerId: ReturnType<typeof setTimeout> | null = null;
+  let timerId: TimerHandle | null = null;
   let controller: AbortController | null = null;
   let lastFetchStartedAt: number | null = null;
   let unsubscribe: (() => void) | null = null;
@@ -57,14 +81,14 @@ export function createHealthPoller(options: CreateHealthPollerOptions): HealthPo
 
   function clearTimer(): void {
     if (timerId !== null) {
-      timers.clearTimeout(timerId);
+      cancelTimeout(timerId);
       timerId = null;
     }
   }
 
   function scheduleFromNow(delay: number): void {
     clearTimer();
-    timerId = timers.setTimeout(() => {
+    timerId = scheduleTimeout(() => {
       timerId = null;
       void performFetch();
     }, delay);
