@@ -1,0 +1,12 @@
+node_modules/
+.env
+.env.local
+api/data/
+api/logs/
+dist/
+coverage/
+*.db
+*.db-wal
+*.db-shm
+.DS_Store
+*.tgz

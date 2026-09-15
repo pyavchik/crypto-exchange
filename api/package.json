@@ -1,0 +1,30 @@
+{
+  "name": "api",
+  "private": true,
+  "type": "module",
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "tsx watch src/server.ts",
+    "start": "tsx src/server.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate"
+  },
+  "dependencies": {
+    "fastify": "^5.12.4",
+    "@fastify/cors": "^11.3.0",
+    "pino": "^10.3.1",
+    "pino-roll": "^4.0.0",
+    "better-sqlite3": "^13.0.3",
+    "drizzle-orm": "^0.45.2"
+  },
+  "devDependencies": {
+    "drizzle-kit": "^0.31.10",
+    "tsx": "^4.23.13",
+    "vitest": "^5.0.1",
+    "typescript": "~6.0.3",
+    "@types/node": "^24",
+    "@types/better-sqlite3": "^9.6.0"
+  }
+}

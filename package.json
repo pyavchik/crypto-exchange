@@ -1,0 +1,25 @@
+{
+  "name": "crypto-exchange",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "workspaces": ["api", "web"],
+  "scripts": {
+    "dev": "concurrently --names api,web --kill-others-on-fail \"npm run dev --workspace=api\" \"npm run dev --workspace=web\"",
+    "test": "npm run test --workspace=api --workspace=web",
+    "typecheck": "npm run typecheck --workspace=api --workspace=web",
+    "smoke": "node scripts/smoke-dev.mjs"
+  },
+  "devDependencies": {
+    "concurrently": "^10.0.5",
+    "eslint": "^10.10.0",
+    "@eslint/js": "^10.0.1",
+    "typescript-eslint": "^8.70.0",
+    "eslint-config-prettier": "^10.1.8",
+    "globals": "^17.12.0",
+    "prettier": "^3.9.6",
+    "typescript": "~6.0.3"
+  }
+}
