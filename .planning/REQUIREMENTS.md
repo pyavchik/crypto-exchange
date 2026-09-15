@@ -71,7 +71,7 @@ Tracks: **FE** = frontend (React+TS), **BE** = backend (Node+TS, SQLite), **QA**
 
 ### Manual QA (QA)
 
-- [ ] **QA-01**: Test strategy / test plan document (scope, risks, environments, entry/exit criteria, severity & priority definitions)
+- [x] **QA-01**: Test strategy / test plan document (scope, risks, environments, entry/exit criteria, severity & priority definitions)
 - [ ] **QA-02**: Manual test cases for Auth (positive, negative, security/isolation) with traceability to AUTH-*
 - [ ] **QA-03**: Manual test cases for Markets & Market Data incl. stale data, rate limit and attribution checks
 - [ ] **QA-04**: Manual test cases for Wallet & market orders incl. precision/rounding, fees, min notional, insufficient balance
@@ -133,7 +133,7 @@ Deferred. Tracked but not in current roadmap.
 | MEM-02 | Phase 1 | Pending |
 | MEM-03 | Phase 1 | Pending |
 | MEM-04 | Phase 1 | Pending |
-| QA-01 | Phase 1 | Pending |
+| QA-01 | Phase 1 | Complete |
 | AUTH-01 | Phase 2 | Pending |
 | AUTH-02 | Phase 2 | Pending |
 | AUTH-03 | Phase 2 | Pending |
@@ -181,6 +181,7 @@ Deferred. Tracked but not in current roadmap.
 | QA-08 | Phase 7 | Pending |
 
 **Coverage:**
+
 - v1 requirements: 54 total
 - Mapped to phases: 54
 - Unmapped: 0 ✓
