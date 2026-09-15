@@ -60,7 +60,17 @@ export async function fetchHealth(
     throw await parseErrorResponse(response, headerRequestId);
   }
 
-  const data = (await response.json()) as HealthResponse;
+  // D-09, REVIEW WR-01: a 2xx response with a malformed/truncated body must
+  // still surface as an ApiError, not a raw SyntaxError — otherwise the
+  // fetchHealth contract ("every failure rejects with ApiError or AbortError")
+  // is silently violated for this one path. Never copy the raw body into the
+  // error.
+  let data: HealthResponse;
+  try {
+    data = (await response.json()) as HealthResponse;
+  } catch {
+    throw new ApiError(response.status, "INVALID_RESPONSE_BODY", headerRequestId);
+  }
   return { data, requestId: headerRequestId };
 }
 

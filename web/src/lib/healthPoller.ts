@@ -1,4 +1,4 @@
-import type { ApiError, ApiResult, HealthResponse } from "./api.js";
+import { ApiError, type ApiResult, type HealthResponse } from "./api.js";
 
 // D-02: poll GET /health on load and every 60s, but only while the tab is
 // visible.
@@ -103,6 +103,15 @@ export function createHealthPoller(options: CreateHealthPollerOptions): HealthPo
     }
   }
 
+  // A single `.then(fulfilled, rejected)` call, not `.then().catch()`: an
+  // exception thrown while handling a successful result can then never reach
+  // the rejected handler (a chained `.catch()` would catch it, which is how
+  // a programming error became "API unreachable" — REVIEW WR-02). Exceptions
+  // from onUpdate, from rescheduling, and non-ApiError rejections all
+  // propagate out of the promise this function returns. start(), the timer
+  // callback and the visibility listener discard that promise with `void`,
+  // so the browser reports them as unhandled rejections in the console
+  // instead of hiding them behind the "API unreachable" badge.
   function performFetch(): Promise<void> {
     if (stopped) return Promise.resolve();
     clearTimer();
@@ -111,22 +120,37 @@ export function createHealthPoller(options: CreateHealthPollerOptions): HealthPo
     controller = abortController;
     lastFetchStartedAt = now();
 
-    const promise = fetchHealth({ signal: abortController.signal })
-      .then((result) => {
+    const promise = fetchHealth({ signal: abortController.signal }).then(
+      (result) => {
         controller = null;
         checking = false;
         if (stopped) return;
-        onUpdate({ kind: "ok", data: result.data, requestId: result.requestId });
-        afterSettled();
-      })
-      .catch((error: unknown) => {
+        try {
+          onUpdate({ kind: "ok", data: result.data, requestId: result.requestId });
+        } finally {
+          afterSettled();
+        }
+      },
+      (error: unknown) => {
         controller = null;
         checking = false;
         if (stopped) return;
         if (isAbortError(error)) return;
-        onUpdate({ kind: "error", error: error as ApiError });
+        if (error instanceof ApiError) {
+          try {
+            onUpdate({ kind: "error", error });
+          } finally {
+            afterSettled();
+          }
+          return;
+        }
+        // Not an ApiError: a programming error (e.g. a bug in fetchHealth
+        // itself), not a network/API failure. Reschedule the next poll, but
+        // never disguise this as an error state.
         afterSettled();
-      });
+        throw error;
+      },
+    );
 
     inFlight = promise;
     return promise;
