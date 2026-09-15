@@ -16,10 +16,10 @@ Tracks: **FE** = frontend (React+TS), **BE** = backend (Node+TS, SQLite), **QA**
 
 ### Project Memory (MEM)
 
-- [ ] **MEM-01**: `wiki/` follows Karpathy's LLM Wiki pattern: `raw/` (immutable sources), wiki pages (LLM-owned), `SCHEMA.md` (conventions)
-- [ ] **MEM-02**: `wiki/index.md` catalogs every wiki page by category and is updated on every ingest
+- [x] **MEM-01**: `wiki/` follows Karpathy's LLM Wiki pattern: `raw/` (immutable sources), wiki pages (LLM-owned), `SCHEMA.md` (conventions)
+- [x] **MEM-02**: `wiki/index.md` catalogs every wiki page by category and is updated on every ingest
 - [ ] **MEM-03**: `wiki/log.md` is an append-only log with parseable prefixes (`INGEST`, `QUERY`, `LINT`, `DECISION`)
-- [ ] **MEM-04**: Project instructions (`CLAUDE.md`) tell the agent to consult and update the wiki at phase boundaries
+- [x] **MEM-04**: Project instructions (`CLAUDE.md`) tell the agent to consult and update the wiki at phase boundaries
 
 ### Authentication (AUTH)
 
@@ -129,10 +129,10 @@ Deferred. Tracked but not in current roadmap.
 | FND-02 | Phase 1 | Pending |
 | FND-03 | Phase 1 | Pending |
 | FND-04 | Phase 1 | Pending |
-| MEM-01 | Phase 1 | Pending |
-| MEM-02 | Phase 1 | Pending |
+| MEM-01 | Phase 1 | Complete |
+| MEM-02 | Phase 1 | Complete |
 | MEM-03 | Phase 1 | Pending |
-| MEM-04 | Phase 1 | Pending |
+| MEM-04 | Phase 1 | Complete |
 | QA-01 | Phase 1 | Pending |
 | AUTH-01 | Phase 2 | Pending |
 | AUTH-02 | Phase 2 | Pending |
@@ -181,6 +181,7 @@ Deferred. Tracked but not in current roadmap.
 | QA-08 | Phase 7 | Pending |
 
 **Coverage:**
+
 - v1 requirements: 54 total
 - Mapped to phases: 54
 - Unmapped: 0 ✓
