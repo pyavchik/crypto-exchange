@@ -64,6 +64,7 @@ A reviewer can open the live demo, place a trade, and then open the QA docs and 
 | QA artifacts are first-class deliverables with their own phase(s) | Target role is QA, not dev | — Pending |
 | LLM Wiki (Karpathy) for project memory in `wiki/` | User preference; persistent compounding knowledge | — Pending |
 | Deploy on free hosting + public repo | Reviewers can click through | — Pending |
+| Request-ID JSON logs, lazy 5-min-cached `/health`, Markdown QA docs, public repo from day one | Traceable evidence for RCA; protect Demo call budget; reviewer-readable ([wiki](../wiki/pages/decisions/foundation-skeleton-conventions.md)) | — Pending (Phase 1) |
 
 ## Evolution
 

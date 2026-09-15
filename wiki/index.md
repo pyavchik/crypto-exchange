@@ -19,7 +19,7 @@ Conventions: [SCHEMA.md](SCHEMA.md) · Log: [log.md](log.md)
 - [Market data caching & stale handling](pages/concepts/market-data-caching.md) — cache TTL, 429 fallback, call budget
 
 ## Decisions
-_(none yet — key decisions currently tracked in `.planning/PROJECT.md`)_
+- [Foundation skeleton conventions](pages/decisions/foundation-skeleton-conventions.md) — request-ID logging, /health, QA doc format, public repo
 
 ## Findings
 _(none yet)_
