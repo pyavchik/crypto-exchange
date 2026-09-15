@@ -54,12 +54,41 @@ export async function fetchHealth(
     throw new ApiError(null, "NETWORK_ERROR", null);
   }
 
-  const requestId = response.headers.get("x-request-id");
+  const headerRequestId = response.headers.get("x-request-id");
 
   if (!response.ok) {
-    throw new ApiError(response.status, `HTTP_${response.status}`, requestId);
+    throw await parseErrorResponse(response, headerRequestId);
   }
 
   const data = (await response.json()) as HealthResponse;
-  return { data, requestId };
+  return { data, requestId: headerRequestId };
+}
+
+interface ErrorResponseBody {
+  error?: { code?: unknown; message?: unknown; requestId?: unknown };
+}
+
+// D-09: error responses use { error: { code, message, requestId } }. Falls
+// back to a synthetic HTTP_<status> code (and the response header's request
+// id) when the body is missing, non-JSON, or lacks a string error.code.
+async function parseErrorResponse(
+  response: Response,
+  headerRequestId: string | null,
+): Promise<ApiError> {
+  try {
+    const body = (await response.json()) as ErrorResponseBody;
+    const code = body.error?.code;
+    if (typeof code === "string") {
+      const requestId =
+        typeof body.error?.requestId === "string" ? body.error.requestId : headerRequestId;
+      const apiError = new ApiError(response.status, code, requestId);
+      if (typeof body.error?.message === "string") {
+        apiError.message = body.error.message;
+      }
+      return apiError;
+    }
+  } catch {
+    // Non-JSON or unparsable body — fall through to the generic HTTP_<status> code.
+  }
+  return new ApiError(response.status, `HTTP_${response.status}`, headerRequestId);
 }
