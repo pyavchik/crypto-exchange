@@ -29,4 +29,4 @@ Conventions: [SCHEMA.md](SCHEMA.md) · Log: [log.md](log.md)
 - [Free hosting + public repository](pages/decisions/free-hosting-public-repo.md) — public repo from day one, hosting choice open
 
 ## Findings
-_(none yet)_
+- [Health badge always shows "API unreachable"](pages/findings/health-poller-illegal-invocation.md) — unbound `timers.setTimeout` throws Illegal invocation in browsers; Node tests miss it
