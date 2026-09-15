@@ -12,7 +12,7 @@ Tracks: **FE** = frontend (React+TS), **BE** = backend (Node+TS, SQLite), **QA**
 - [ ] **FND-01**: Developer can run web + api locally with one command (monorepo: `web/`, `api/`, `qa/`)
 - [ ] **FND-02**: CI runs lint, typecheck and unit tests on every push to GitHub
 - [ ] **FND-03**: API exposes `GET /health` returning version and upstream (CoinGecko) status
-- [ ] **FND-04**: API writes structured JSON logs with a request ID that is also returned in a response header (enables log-based RCA)
+- [x] **FND-04**: API writes structured JSON logs with a request ID that is also returned in a response header (enables log-based RCA)
 
 ### Project Memory (MEM)
 
@@ -128,7 +128,7 @@ Deferred. Tracked but not in current roadmap.
 | FND-01 | Phase 1 | Pending |
 | FND-02 | Phase 1 | Pending |
 | FND-03 | Phase 1 | Pending |
-| FND-04 | Phase 1 | Pending |
+| FND-04 | Phase 1 | Complete |
 | MEM-01 | Phase 1 | Pending |
 | MEM-02 | Phase 1 | Pending |
 | MEM-03 | Phase 1 | Pending |
@@ -181,6 +181,7 @@ Deferred. Tracked but not in current roadmap.
 | QA-08 | Phase 7 | Pending |
 
 **Coverage:**
+
 - v1 requirements: 54 total
 - Mapped to phases: 54
 - Unmapped: 0 ✓
