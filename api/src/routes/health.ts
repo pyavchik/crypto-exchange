@@ -30,12 +30,46 @@ export interface HealthRoutesOptions {
   coingecko: CoingeckoStatusService;
 }
 
+// additionalProperties: false at every level so an accidental extra field on
+// the upstream check (or anywhere else in the body) can never leak through
+// Fastify's response serialization (D-03, T-01-19), regardless of what the
+// underlying service happens to return.
+const HEALTH_RESPONSE_SCHEMA = {
+  200: {
+    type: "object",
+    additionalProperties: false,
+    required: ["status", "version", "commit", "upstream"],
+    properties: {
+      status: { type: "string", enum: ["ok"] },
+      version: { type: "string" },
+      commit: { type: "string" },
+      upstream: {
+        type: "object",
+        additionalProperties: false,
+        required: ["coingecko"],
+        properties: {
+          coingecko: {
+            type: "object",
+            additionalProperties: false,
+            required: ["status", "checkedAt", "latencyMs"],
+            properties: {
+              status: { type: "string", enum: ["ok", "degraded", "down", "not_configured"] },
+              checkedAt: { type: ["string", "null"] },
+              latencyMs: { type: ["number", "null"] },
+            },
+          },
+        },
+      },
+    },
+  },
+} as const;
+
 const healthRoutes: FastifyPluginCallback<HealthRoutesOptions> = (
   app: FastifyInstance,
   opts,
   done,
 ) => {
-  app.get("/health", async (request, reply) => {
+  app.get("/health", { schema: { response: HEALTH_RESPONSE_SCHEMA } }, async (request, reply) => {
     const coingecko = await opts.coingecko.getStatus({
       requestId: request.id,
       log: request.log,
