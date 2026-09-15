@@ -1,0 +1,9 @@
+# Wiki Log
+
+Append-only. Format: `YYYY-MM-DD | TYPE | summary | pages touched`
+
+2026-09-15 | INGEST | Karpathy LLM Wiki gist — adopted as memory pattern, wrote SCHEMA.md | sources/karpathy-llm-wiki, concepts/project-overview
+2026-09-15 | INGEST | Railsware Senior QA (TradeZella) posting | sources/railsware-senior-qa-tradezella, concepts/qa-portfolio-alignment, concepts/project-overview
+2026-09-15 | INGEST | CoinGecko Demo API docs (auth + endpoint index) | sources/coingecko-demo-api-docs, entities/coingecko-api, concepts/market-data-caching
+2026-09-15 | FINDING | Refreshing 20 pairs/min would exceed the ≈10k/month Demo cap (unverified) — needs refresh strategy decision in Phase 3 | concepts/market-data-caching
+2026-09-15 | LINT | Initial lint: 8 pages, 0 orphans, 0 broken links, 4 unverified claims flagged | all
