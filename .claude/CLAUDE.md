@@ -78,5 +78,5 @@ Durable knowledge lives in `wiki/` (Karpathy LLM Wiki pattern); conventions in `
 - **New external source** (docs page, article, job info): INGEST per SCHEMA.md — save to `wiki/raw/` (immutable), write source page, update entity/concept pages, `index.md`, append to `log.md`.
 - **Key decision made in discuss/plan:** write `wiki/pages/decisions/<slug>.md` and mirror one line in `.planning/PROJECT.md` Key Decisions.
 - **Bug, gotcha or RCA found during execution/testing:** write `wiki/pages/findings/<slug>.md` and link it from the matching artifact in `qa/`.
-- **Phase transition:** LINT the wiki (contradictions, stale/unverified facts, orphans, broken `[[links]]`) and append a `LINT` line to `wiki/log.md`.
+- **Phase transition:** run `node scripts/wiki-lint.mjs --base <commit where the previous phase ended>` (structure/frontmatter/links/index/log are machine-checked); also read pages for contradictions and stale/unverified facts (not machine-checked); fix or flag findings; append a `LINT` line with the printed counts to `wiki/log.md`.
 - Never edit files in `wiki/raw/`. Never rewrite past lines in `wiki/log.md`.
