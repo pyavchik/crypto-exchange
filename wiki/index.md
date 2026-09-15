@@ -20,6 +20,13 @@ Conventions: [SCHEMA.md](SCHEMA.md) · Log: [log.md](log.md)
 
 ## Decisions
 - [Foundation skeleton conventions](pages/decisions/foundation-skeleton-conventions.md) — request-ID logging, /health, QA doc format, public repo
+- [Paper-trading exchange scope](pages/decisions/paper-trading-scope.md) — simulated Binance-style exchange, spot only, no real money
+- [Limit order fill model](pages/decisions/limit-order-fill-model.md) — fills on reference-price cross, no matching engine
+- [Tech stack](pages/decisions/tech-stack.md) — React+TS / Node+TS / SQLite, concrete Phase 1 versions
+- [Backend proxy + cache for CoinGecko](pages/decisions/coingecko-proxy.md) — key server-side only, rate limits respected
+- [QA artifacts are first-class deliverables](pages/decisions/qa-first-class.md) — every phase ships QA alongside FE+BE
+- [LLM Wiki (Karpathy) for project memory](pages/decisions/llm-wiki-memory.md) — durable knowledge lives in wiki/
+- [Free hosting + public repository](pages/decisions/free-hosting-public-repo.md) — public repo from day one, hosting choice open
 
 ## Findings
 _(none yet)_
