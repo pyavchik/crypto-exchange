@@ -202,6 +202,56 @@ describe("createHealthPoller", () => {
     poller.stop();
   });
 
+  it("an exception from onUpdate after a successful fetch propagates and is not reported as an error state", async () => {
+    const fetchHealth = vi.fn<() => Promise<ApiResult<HealthResponse>>>().mockResolvedValue({
+      data: HEALTH_BODY,
+      requestId: null,
+    });
+    const onUpdate = vi
+      .fn()
+      .mockImplementationOnce(() => {})
+      .mockImplementationOnce(() => {
+        throw new Error("render bug");
+      });
+    const visibility = createFakeVisibility(true);
+    const poller = createHealthPoller({ fetchHealth, onUpdate, visibility });
+
+    poller.start();
+    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(30_000);
+
+    await expect(poller.refresh()).rejects.toThrow("render bug");
+    expect(onUpdate).not.toHaveBeenCalledWith(expect.objectContaining({ kind: "error" }));
+
+    await vi.advanceTimersByTimeAsync(HEALTH_POLL_INTERVAL_MS);
+    expect(fetchHealth).toHaveBeenCalledTimes(3);
+
+    poller.stop();
+  });
+
+  it("a non-ApiError rejection from fetchHealth is rethrown, not rendered", async () => {
+    const fetchHealth = vi
+      .fn<() => Promise<ApiResult<HealthResponse>>>()
+      .mockResolvedValueOnce({ data: HEALTH_BODY, requestId: null })
+      .mockRejectedValueOnce(new TypeError("boom"))
+      .mockResolvedValue({ data: HEALTH_BODY, requestId: null });
+    const onUpdate = vi.fn();
+    const visibility = createFakeVisibility(true);
+    const poller = createHealthPoller({ fetchHealth, onUpdate, visibility });
+
+    poller.start();
+    await vi.advanceTimersByTimeAsync(0);
+
+    await expect(poller.refresh()).rejects.toThrow("boom");
+    expect(onUpdate).not.toHaveBeenCalledWith(expect.objectContaining({ kind: "error" }));
+
+    await vi.advanceTimersByTimeAsync(HEALTH_POLL_INTERVAL_MS);
+    expect(fetchHealth).toHaveBeenCalledTimes(3);
+    expect(onUpdate).toHaveBeenLastCalledWith({ kind: "ok", data: HEALTH_BODY, requestId: null });
+
+    poller.stop();
+  });
+
   it("stop() aborts the in-flight request, clears the timer and unsubscribes, with no update afterwards", async () => {
     let capturedSignal: AbortSignal | undefined;
     const fetchHealth = vi.fn<

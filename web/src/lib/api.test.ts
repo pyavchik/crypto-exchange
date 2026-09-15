@@ -65,6 +65,21 @@ describe("fetchHealth", () => {
     } satisfies Partial<ApiError>);
   });
 
+  it("rejects with ApiError INVALID_RESPONSE_BODY when a 2xx response body is not valid JSON", async () => {
+    const fetchImpl = (async () =>
+      new Response("not json", {
+        status: 200,
+        headers: { "x-request-id": "r-3" },
+      })) as typeof fetch;
+
+    await expect(fetchHealth({ fetchImpl })).rejects.toBeInstanceOf(ApiError);
+    await expect(fetchHealth({ fetchImpl })).rejects.toMatchObject({
+      status: 200,
+      code: "INVALID_RESPONSE_BODY",
+      requestId: "r-3",
+    } satisfies Partial<ApiError>);
+  });
+
   it("rethrows an aborted signal's error instead of wrapping it as NETWORK_ERROR", async () => {
     const abortError = new DOMException("aborted", "AbortError");
     const fetchImpl = (async () => {
