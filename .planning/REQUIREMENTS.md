@@ -9,8 +9,8 @@ Tracks: **FE** = frontend (React+TS), **BE** = backend (Node+TS, SQLite), **QA**
 
 ### Foundation (FND)
 
-- [ ] **FND-01**: Developer can run web + api locally with one command (monorepo: `web/`, `api/`, `qa/`)
-- [ ] **FND-02**: CI runs lint, typecheck and unit tests on every push to GitHub
+- [x] **FND-01**: Developer can run web + api locally with one command (monorepo: `web/`, `api/`, `qa/`)
+- [x] **FND-02**: CI runs lint, typecheck and unit tests on every push to GitHub
 - [ ] **FND-03**: API exposes `GET /health` returning version and upstream (CoinGecko) status
 - [x] **FND-04**: API writes structured JSON logs with a request ID that is also returned in a response header (enables log-based RCA)
 
@@ -18,7 +18,7 @@ Tracks: **FE** = frontend (React+TS), **BE** = backend (Node+TS, SQLite), **QA**
 
 - [x] **MEM-01**: `wiki/` follows Karpathy's LLM Wiki pattern: `raw/` (immutable sources), wiki pages (LLM-owned), `SCHEMA.md` (conventions)
 - [x] **MEM-02**: `wiki/index.md` catalogs every wiki page by category and is updated on every ingest
-- [ ] **MEM-03**: `wiki/log.md` is an append-only log with parseable prefixes (`INGEST`, `QUERY`, `LINT`, `DECISION`)
+- [x] **MEM-03**: `wiki/log.md` is an append-only log with parseable prefixes (`INGEST`, `QUERY`, `LINT`, `DECISION`)
 - [x] **MEM-04**: Project instructions (`CLAUDE.md`) tell the agent to consult and update the wiki at phase boundaries
 
 ### Authentication (AUTH)
@@ -125,13 +125,13 @@ Deferred. Tracked but not in current roadmap.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| FND-01 | Phase 1 | Pending |
-| FND-02 | Phase 1 | Pending |
+| FND-01 | Phase 1 | Complete |
+| FND-02 | Phase 1 | Complete |
 | FND-03 | Phase 1 | Pending |
 | FND-04 | Phase 1 | Complete |
 | MEM-01 | Phase 1 | Complete |
 | MEM-02 | Phase 1 | Complete |
-| MEM-03 | Phase 1 | Pending |
+| MEM-03 | Phase 1 | Complete |
 | MEM-04 | Phase 1 | Complete |
 | QA-01 | Phase 1 | Complete |
 | AUTH-01 | Phase 2 | Pending |
