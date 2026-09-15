@@ -11,7 +11,5 @@ export const upstreamChecks = sqliteTable(
     checkedAt: text("checked_at").notNull(),
     requestId: text("request_id"),
   },
-  (table) => [
-    index("upstream_checks_service_checked_at_idx").on(table.service, table.checkedAt),
-  ],
+  (table) => [index("upstream_checks_service_checked_at_idx").on(table.service, table.checkedAt)],
 );

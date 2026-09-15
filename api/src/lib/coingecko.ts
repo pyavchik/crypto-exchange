@@ -90,7 +90,6 @@ export function createCoingeckoStatusService(deps: CoingeckoStatusDeps): Coingec
         ) {
           timedOut = true;
         }
-        httpStatus = null;
       }
 
       const latencyMs = now() - start;

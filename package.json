@@ -5,12 +5,18 @@
   "engines": {
     "node": ">=24"
   },
-  "workspaces": ["api", "web"],
+  "workspaces": [
+    "api",
+    "web"
+  ],
   "scripts": {
     "dev": "concurrently --names api,web --kill-others-on-fail \"npm run dev --workspace=api\" \"npm run dev --workspace=web\"",
     "test": "npm run test --workspace=api --workspace=web",
     "typecheck": "npm run typecheck --workspace=api --workspace=web",
-    "smoke": "node scripts/smoke-dev.mjs"
+    "smoke": "node scripts/smoke-dev.mjs",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
   },
   "devDependencies": {
     "concurrently": "^10.0.5",

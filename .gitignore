@@ -10,3 +10,5 @@ coverage/
 *.db-shm
 .DS_Store
 *.tgz
+.gsd/
+.planning/milestone.lock

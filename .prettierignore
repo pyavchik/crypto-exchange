@@ -1,0 +1,13 @@
+node_modules
+package-lock.json
+dist
+coverage
+api/data
+api/logs
+api/src/db/migrations
+.planning
+wiki
+qa
+.claude
+.gsd
+**/*.md

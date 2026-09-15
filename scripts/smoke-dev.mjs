@@ -148,7 +148,7 @@ async function main() {
     const webResponse = await fetch(`http://localhost:${webPort}/`);
     if (webResponse.status !== 200) fail(`web root returned status ${webResponse.status}`);
     const webBody = await webResponse.text();
-    if (!webBody.includes('id="root"')) fail("web root response did not contain id=\"root\"");
+    if (!webBody.includes('id="root"')) fail('web root response did not contain id="root"');
 
     // (b) GET /health with Origin header
     const origin = `http://localhost:${webPort}`;
@@ -159,9 +159,12 @@ async function main() {
     const healthBody = await healthResponse.json();
     if (healthBody.status !== "ok") fail(`/health status field was "${healthBody.status}"`);
     if (healthBody.version !== apiPackageVersion) {
-      fail(`/health version "${healthBody.version}" !== api/package.json version "${apiPackageVersion}"`);
+      fail(
+        `/health version "${healthBody.version}" !== api/package.json version "${apiPackageVersion}"`,
+      );
     }
-    if (healthBody.commit !== "smoke") fail(`/health commit was "${healthBody.commit}", expected "smoke"`);
+    if (healthBody.commit !== "smoke")
+      fail(`/health commit was "${healthBody.commit}", expected "smoke"`);
     if (healthBody.upstream?.coingecko?.status !== "ok") {
       fail(`/health upstream.coingecko.status was "${healthBody.upstream?.coingecko?.status}"`);
     }
@@ -173,7 +176,9 @@ async function main() {
     if (allowOrigin !== origin) {
       fail(`access-control-allow-origin was "${allowOrigin}", expected "${origin}"`);
     }
-    const exposeHeaders = (healthResponse.headers.get("access-control-expose-headers") ?? "").toLowerCase();
+    const exposeHeaders = (
+      healthResponse.headers.get("access-control-expose-headers") ?? ""
+    ).toLowerCase();
     if (!exposeHeaders.includes("x-request-id")) {
       fail(`access-control-expose-headers "${exposeHeaders}" does not include x-request-id`);
     }
@@ -205,14 +210,17 @@ async function main() {
         typeof entry.durationMs === "number",
       5_000,
     );
-    if (!requestLine) fail("no matching \"request completed\" log line found within 5s");
+    if (!requestLine) fail('no matching "request completed" log line found within 5s');
 
     const upstreamLine = await pollForLogLine(
       logFilePath,
-      (entry) => entry.msg === "upstream call" && typeof entry.url === "string" && entry.url.endsWith("/ping"),
+      (entry) =>
+        entry.msg === "upstream call" &&
+        typeof entry.url === "string" &&
+        entry.url.endsWith("/ping"),
       5_000,
     );
-    if (!upstreamLine) fail("no matching \"upstream call\" log line found within 5s");
+    if (!upstreamLine) fail('no matching "upstream call" log line found within 5s');
 
     // (f) key never appears in the log file
     if (upstreamLine.contents.includes("smoke-test-key")) {

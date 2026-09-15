@@ -11,7 +11,12 @@ export interface HealthResponse {
   upstream: { coingecko: UpstreamCheck };
 }
 
-const PACKAGE_JSON_PATH = resolve(dirname(fileURLToPath(import.meta.url)), "..", "..", "package.json");
+const PACKAGE_JSON_PATH = resolve(
+  dirname(fileURLToPath(import.meta.url)),
+  "..",
+  "..",
+  "package.json",
+);
 
 export function readApiVersion(): string {
   const raw = readFileSync(PACKAGE_JSON_PATH, "utf8");
