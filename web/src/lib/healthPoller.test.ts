@@ -1,6 +1,10 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError, type ApiResult, type HealthResponse } from "./api.js";
-import { createHealthPoller, HEALTH_POLL_INTERVAL_MS, type VisibilityAdapter } from "./healthPoller.js";
+import {
+  createHealthPoller,
+  HEALTH_POLL_INTERVAL_MS,
+  type VisibilityAdapter,
+} from "./healthPoller.js";
 
 const HEALTH_BODY: HealthResponse = {
   status: "ok",
@@ -199,7 +203,9 @@ describe("createHealthPoller", () => {
 
   it("stop() aborts the in-flight request, clears the timer and unsubscribes, with no update afterwards", async () => {
     let capturedSignal: AbortSignal | undefined;
-    const fetchHealth = vi.fn<(options?: { signal?: AbortSignal }) => Promise<ApiResult<HealthResponse>>>(
+    const fetchHealth = vi.fn<
+      (options?: { signal?: AbortSignal }) => Promise<ApiResult<HealthResponse>>
+    >(
       (opts) =>
         new Promise<ApiResult<HealthResponse>>((_resolve, reject) => {
           capturedSignal = opts?.signal;

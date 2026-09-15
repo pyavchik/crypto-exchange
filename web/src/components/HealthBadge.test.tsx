@@ -31,12 +31,15 @@ describe("HealthBadgeView", () => {
     expect(markup).toContain('data-status="not_configured"');
   });
 
-  it.each(["ok", "degraded", "down"] as const)("renders its own data-status value for %s", (status) => {
-    const markup = renderToStaticMarkup(
-      <HealthBadgeView state={okState(status)} checking={false} onRecheck={() => {}} />,
-    );
-    expect(markup).toContain(`data-status="${status}"`);
-  });
+  it.each(["ok", "degraded", "down"] as const)(
+    "renders its own data-status value for %s",
+    (status) => {
+      const markup = renderToStaticMarkup(
+        <HealthBadgeView state={okState(status)} checking={false} onRecheck={() => {}} />,
+      );
+      expect(markup).toContain(`data-status="${status}"`);
+    },
+  );
 
   it("shows API unreachable and the request id when the error carries one", () => {
     const error = new ApiError(500, "INTERNAL_ERROR", "r-9");
