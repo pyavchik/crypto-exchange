@@ -1,0 +1,48 @@
+{
+  "contract": "1.0.0",
+  "flavor": "core",
+  "milestone": null,
+  "phases": [
+    {
+      "number": "1",
+      "name": "Foundation & Project Memory",
+      "status": "pending"
+    },
+    {
+      "number": "2",
+      "name": "Accounts",
+      "status": "pending"
+    },
+    {
+      "number": "3",
+      "name": "Live Markets",
+      "status": "pending"
+    },
+    {
+      "number": "4",
+      "name": "Wallet & Market Orders",
+      "status": "pending"
+    },
+    {
+      "number": "5",
+      "name": "Limit Orders & History",
+      "status": "pending"
+    },
+    {
+      "number": "6",
+      "name": "QA Hardening",
+      "status": "pending"
+    },
+    {
+      "number": "7",
+      "name": "Ship",
+      "status": "pending"
+    }
+  ],
+  "next": {
+    "command": "/gsd:progress --next",
+    "label": "Advance to the next step",
+    "reason": "Phase 01 of 7 · 0% · executing"
+  },
+  "updated_at": "2026-09-15T17:13:33.698Z"
+}

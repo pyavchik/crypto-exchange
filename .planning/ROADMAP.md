@@ -7,6 +7,7 @@ Build a Binance-style paper-trading exchange as vertical slices — every featur
 ## Phases
 
 **Phase Numbering:**
+
 - Integer phases (1, 2, 3): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
@@ -21,128 +22,163 @@ Build a Binance-style paper-trading exchange as vertical slices — every featur
 ## Phase Details
 
 ### Phase 1: Foundation & Project Memory
+
 **Goal**: A running skeleton (web + api) with CI and traceable logs, plus the wiki memory and test strategy every later phase builds on
 **Mode:** mvp
 **Depends on**: Nothing (first phase)
 **Requirements**: FND-01, FND-02, FND-03, FND-04, MEM-01, MEM-02, MEM-03, MEM-04, QA-01
 **Success Criteria** (what must be TRUE):
+
   1. `npm run dev` starts web and api; the web page shows API health status
   2. CI goes green on GitHub for lint, typecheck and unit tests
   3. Every API response carries an `X-Request-Id` that can be found in the JSON logs
   4. `wiki/index.md`, `wiki/log.md`, `wiki/SCHEMA.md` exist and the job posting + CoinGecko notes are ingested
   5. `qa/TEST-PLAN.md` defines scope, risks, severity/priority and entry/exit criteria
+
 **Plans**: 3 plans
 
 Plans:
+**Wave 1**
+
 - [ ] 01-01: BE+FE — Monorepo scaffold (Vite React TS, Node TS API, SQLite), `/health`, request-ID logging, CI
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 01-02: MEM — LLM Wiki structure, schema, initial ingests, CLAUDE.md wiki rules
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
 - [ ] 01-03: QA — Test strategy / test plan, bug report + test case templates
 
 ### Phase 2: Accounts
+
 **Goal**: Users can create an account and hold a private, pre-funded demo wallet
 **Mode:** mvp
 **Depends on**: Phase 1
 **Requirements**: AUTH-01, AUTH-02, AUTH-03, AUTH-04, AUTH-05, QA-02
 **Success Criteria** (what must be TRUE):
+
   1. User can sign up, log in, refresh and stay logged in, and log out
   2. Invalid signups (bad email, short password, duplicate email) show clear errors
   3. A new user sees exactly 10,000 USDT; user A cannot fetch user B's data via the API
   4. Auth test cases are written, executed, and results recorded
+
 **Plans**: 3 plans
 
 Plans:
+
 - [ ] 02-01: BE — Users table, password hashing, session cookie, auth middleware, balance grant
 - [ ] 02-02: FE — Sign up / login / logout screens, protected routes, error states
 - [ ] 02-03: QA — Auth test cases (incl. isolation/IDOR checks) + execution report
 
 ### Phase 3: Live Markets
+
 **Goal**: Users see live, rate-limit-safe CoinGecko market data in a Binance-like markets and trade view
 **Mode:** mvp
 **Depends on**: Phase 2
 **Requirements**: DATA-01, DATA-02, DATA-03, DATA-04, MKT-01, MKT-02, MKT-03, MKT-04, MKT-05, QA-03
 **Success Criteria** (what must be TRUE):
+
   1. Markets table lists the curated pairs with price, 24h %, volume, market cap; search and sort work
   2. Trade page shows a 1D/7D/30D chart for the selected pair
   3. The CoinGecko key does not appear anywhere in browser network traffic
   4. When CoinGecko returns 429 or times out, the UI shows cached prices with a "prices delayed" banner
   5. Market data test cases are written and executed
+
 **Plans**: 3 plans
 
 Plans:
+
 - [ ] 03-01: BE — CoinGecko client, TTL cache, stale fallback, curated pair list, markets/chart endpoints
 - [ ] 03-02: FE — Markets table (search/sort/auto-refresh), trade page layout + chart, stale banner, attribution
 - [ ] 03-03: QA — Market data test cases (rate limit, stale, attribution, formatting) + execution report
 
 ### Phase 4: Wallet & Market Orders
+
 **Goal**: Users can buy and sell at market with correct, decimal-safe balances and fees
 **Mode:** mvp
 **Depends on**: Phase 3
 **Requirements**: WAL-01, WAL-02, WAL-03, WAL-04, TRD-01, TRD-02, TRD-03, TRD-04, AUT-04, QA-04
 **Success Criteria** (what must be TRUE):
+
   1. User can market-buy by USDT amount or quantity and market-sell owned assets
   2. Wallet shows available/locked/total per asset and total value in USDT
   3. Orders violating balance, min notional or precision rules are rejected with clear messages
   4. Fee of 0.1% is shown on each fill and balances reconcile to the cent in unit tests
   5. Wallet & market order test cases are written and executed
+
 **Plans**: 4 plans
 
 Plans:
+
 - [ ] 04-01: BE — Balances ledger, decimal math library, market order engine, fees, validation rules
 - [ ] 04-02: BE — Unit tests for order math (fees, rounding, min notional)
 - [ ] 04-03: FE — Buy/sell panel, wallet page, confirmations, error and empty states, reset account
 - [ ] 04-04: QA — Wallet & market order test cases (boundary values, rounding, fees) + execution report
 
 ### Phase 5: Limit Orders & History
+
 **Goal**: Users can manage limit orders and review a correct history of orders, trades and P&L
 **Mode:** mvp
 **Depends on**: Phase 4
 **Requirements**: TRD-05, TRD-06, TRD-07, TRD-08, ORD-01, ORD-02, ORD-03, ORD-04, QA-05
 **Success Criteria** (what must be TRUE):
+
   1. Placing a limit order locks funds; cancelling releases them exactly
   2. A limit order fills automatically when the reference price crosses its limit
   3. Double-submitting or concurrent requests cannot double-spend a balance
   4. Open orders, order history and trade history display correct statuses, fees and realized/unrealized P&L
   5. Limit order & history test cases are written and executed
+
 **Plans**: 4 plans
 
 Plans:
+
 - [ ] 05-01: BE — Limit order placement, fund locking, cancel, idempotency keys / transactions
 - [ ] 05-02: BE — Fill-on-cross worker driven by price refresh; average-cost P&L
 - [ ] 05-03: FE — Limit order form, open orders / order history / trade history tabs, P&L display
 - [ ] 05-04: QA — Limit order & P&L test cases (crossing boundaries, cancel races) + execution report
 
 ### Phase 6: QA Hardening
+
 **Goal**: The product is covered by an API test collection, a Playwright smoke suite, exploratory testing, documented bugs and RCA write-ups
 **Mode:** mvp
 **Depends on**: Phase 5
 **Requirements**: AUT-01, AUT-02, AUT-03, QA-06, QA-07, RCA-01
 **Success Criteria** (what must be TRUE):
+
   1. API collection runs in CI and covers every endpoint including negative and auth cases
   2. Playwright smoke suite (sign up → buy → limit → cancel → balances) passes in CI
   3. 429/stale scenarios are reproduced deterministically via network mocking
   4. Exploratory session notes, UX review and bug reports with evidence exist in `qa/`
   5. At least 3 RCA write-ups link logs/network evidence to the fix and regression test
+
 **Plans**: 4 plans
 
 Plans:
+
 - [ ] 06-01: QA — API test collection (Bruno/Postman) + CI job
 - [ ] 06-02: QA — Playwright TS smoke suite with page objects and network mocks + CI job
 - [ ] 06-03: QA — Exploratory sessions, UX review, bug reports
 - [ ] 06-04: QA — RCA investigations and write-ups; fixes + regression tests
 
 ### Phase 7: Ship
+
 **Goal**: Reviewers can click a link, log in with a demo account, and find every QA artifact within a minute
 **Mode:** mvp
 **Depends on**: Phase 6
 **Requirements**: SHIP-01, SHIP-02, SHIP-03, QA-08
 **Success Criteria** (what must be TRUE):
+
   1. App is live on a public URL on free hosting
   2. Demo credentials on the landing page log straight into a seeded account
   3. README gives a 60-second tour, architecture diagram and links to all QA artifacts
   4. Release and post-release smoke checklists are executed against production and recorded
+
 **Plans**: 2 plans
 
 Plans:
+
 - [ ] 07-01: BE+FE — Deploy (web + api + SQLite volume), env secrets, seed demo account
 - [ ] 07-02: QA — Release checklist, production smoke run, reviewer README
 
