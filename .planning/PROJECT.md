@@ -57,13 +57,13 @@ A reviewer can open the live demo, place a trade, and then open the QA docs and 
 
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
-| Simulated paper-trading exchange, Binance-style UI | CoinGecko is market data only; real exchange needs licensing | — Pending |
-| Limit orders fill on reference-price cross (no matching engine) | Deterministic, testable, fits available data | — Pending |
-| React+TS / Node+TS / SQLite | Single language; aligns with Playwright TS | — Pending |
-| Backend proxy + cache for CoinGecko | Hide API key, respect rate limits, enable 429/timeout testing | — Pending |
-| QA artifacts are first-class deliverables with their own phase(s) | Target role is QA, not dev | — Pending |
-| LLM Wiki (Karpathy) for project memory in `wiki/` | User preference; persistent compounding knowledge | — Pending |
-| Deploy on free hosting + public repo | Reviewers can click through | — Pending |
+| Simulated paper-trading exchange, Binance-style UI | CoinGecko is market data only; real exchange needs licensing ([wiki](../wiki/pages/decisions/paper-trading-scope.md)) | — Pending |
+| Limit orders fill on reference-price cross (no matching engine) | Deterministic, testable, fits available data ([wiki](../wiki/pages/decisions/limit-order-fill-model.md)) | — Pending |
+| React+TS / Node+TS / SQLite | Single language; aligns with Playwright TS ([wiki](../wiki/pages/decisions/tech-stack.md)) | — Pending |
+| Backend proxy + cache for CoinGecko | Hide API key, respect rate limits, enable 429/timeout testing ([wiki](../wiki/pages/decisions/coingecko-proxy.md)) | — Pending |
+| QA artifacts are first-class deliverables with their own phase(s) | Target role is QA, not dev ([wiki](../wiki/pages/decisions/qa-first-class.md)) | — Pending |
+| LLM Wiki (Karpathy) for project memory in `wiki/` | User preference; persistent compounding knowledge ([wiki](../wiki/pages/decisions/llm-wiki-memory.md)) | — Pending |
+| Deploy on free hosting + public repo | Reviewers can click through ([wiki](../wiki/pages/decisions/free-hosting-public-repo.md)) | — Pending |
 | Request-ID JSON logs, lazy 5-min-cached `/health`, Markdown QA docs, public repo from day one | Traceable evidence for RCA; protect Demo call budget; reviewer-readable ([wiki](../wiki/pages/decisions/foundation-skeleton-conventions.md)) | — Pending (Phase 1) |
 
 ## Evolution
