@@ -35,7 +35,7 @@ Build a Binance-style paper-trading exchange as vertical slices — every featur
   4. `wiki/index.md`, `wiki/log.md`, `wiki/SCHEMA.md` exist and the job posting + CoinGecko notes are ingested
   5. `qa/TEST-PLAN.md` defines scope, risks, severity/priority and entry/exit criteria
 
-**Plans**: 8/11 plans executed
+**Plans**: 9/11 plans executed
 
 Plans:
 
@@ -47,7 +47,7 @@ Plans:
 - [x] 01-06-PLAN.md
 - [x] 01-07-PLAN.md
 - [x] 01-08-PLAN.md
-- [ ] 01-09-PLAN.md — Gap closure: health poller timer receiver fix + programming-error separation (G-01-1..3)
+- [x] 01-09-PLAN.md — Gap closure: health poller timer receiver fix + programming-error separation (G-01-1..3)
 - [ ] 01-10-PLAN.md — Gap closure: real-browser step in `npm run smoke` (playwright-core + installed Chrome) + favicon (G-01-2..4)
 - [ ] 01-11-PLAN.md — Gap closure: BUG-001, wiki finding/tech-stack update, TEST-PLAN priority + browser-check docs (G-01-4)
 
@@ -202,7 +202,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation & Project Memory | 8/11 | In Progress|  |
+| 1. Foundation & Project Memory | 9/11 | In Progress|  |
 | 2. Accounts | 0/3 | Not started | - |
 | 3. Live Markets | 0/3 | Not started | - |
 | 4. Wallet & Market Orders | 0/4 | Not started | - |

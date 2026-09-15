@@ -11,7 +11,7 @@ Tracks: **FE** = frontend (React+TS), **BE** = backend (Node+TS, SQLite), **QA**
 
 - [x] **FND-01**: Developer can run web + api locally with one command (monorepo: `web/`, `api/`, `qa/`)
 - [x] **FND-02**: CI runs lint, typecheck and unit tests on every push to GitHub
-- [ ] **FND-03**: API exposes `GET /health` returning version and upstream (CoinGecko) status
+- [x] **FND-03**: API exposes `GET /health` returning version and upstream (CoinGecko) status
 - [x] **FND-04**: API writes structured JSON logs with a request ID that is also returned in a response header (enables log-based RCA)
 
 ### Project Memory (MEM)
@@ -127,7 +127,7 @@ Deferred. Tracked but not in current roadmap.
 |-------------|-------|--------|
 | FND-01 | Phase 1 | Complete |
 | FND-02 | Phase 1 | Complete |
-| FND-03 | Phase 1 | Pending |
+| FND-03 | Phase 1 | Complete |
 | FND-04 | Phase 1 | Complete |
 | MEM-01 | Phase 1 | Complete |
 | MEM-02 | Phase 1 | Complete |
