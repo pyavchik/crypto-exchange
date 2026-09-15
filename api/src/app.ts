@@ -11,7 +11,16 @@ import type pino from "pino";
 import type { AppConfig } from "./config.js";
 import type { AppDatabase } from "./db/client.js";
 import { createCoingeckoStatusService } from "./lib/coingecko.js";
+import { registerErrorHandlers } from "./lib/errors.js";
 import healthRoutes, { readApiVersion } from "./routes/health.js";
+
+// Phase 2 populates this from the authenticated session; until then it is
+// always null, but the request-log line (D-07) always has the slot.
+declare module "fastify" {
+  interface FastifyRequest {
+    userId: string | null;
+  }
+}
 
 export interface AppDeps {
   config: AppConfig;
@@ -56,7 +65,7 @@ export class RequestLogController extends LogController {
       path,
       status,
       durationMs,
-      userId: null,
+      userId: request.userId ?? null,
     };
 
     if (error) {
@@ -79,10 +88,14 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     logController: new RequestLogController({ requestIdLogLabel: "requestId" }),
   });
 
+  app.decorateRequest("userId", null);
+
   app.addHook("onSend", async (request, reply, payload) => {
     reply.header("x-request-id", request.id);
     return payload;
   });
+
+  registerErrorHandlers(app);
 
   await app.register(cors, {
     origin: deps.config.corsOrigins,
