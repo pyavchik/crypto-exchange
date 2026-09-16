@@ -53,6 +53,74 @@ describe("hashPassword / verifyPassword", () => {
     await expect(verifyPassword("password1", corrupted)).resolves.toBe(false);
   });
 
+  // CR-01 regression: a malformed/non-hex stored hash component must fail
+  // closed (verifyPassword -> false), never authenticate an arbitrary
+  // password. Buffer.from(hex) silently decodes invalid hex to an empty (or
+  // truncated) buffer instead of throwing, and prior to the CR-01 fix that
+  // empty buffer made verifyPassword derive a zero-length key and compare
+  // two empty buffers as equal -- authenticating *any* password.
+  it("CR-01: rejects a non-hex stored hash instead of authenticating any password (reviewer's exact repro)", async () => {
+    const encoded = await hashPassword("the real password");
+    const parts = encoded.split("$");
+    const validSaltHex = parts[4] ?? "";
+    const corrupted = `scrypt$16384$8$1$${validSaltHex}$zzzznothex`;
+    await expect(verifyPassword("literally-anything-wrong", corrupted)).resolves.toBe(false);
+  });
+
+  it("CR-01: rejects a stored hash truncated to zero-length hex without throwing", async () => {
+    const encoded = await hashPassword("the real password");
+    const parts = encoded.split("$");
+    const validSaltHex = parts[4] ?? "";
+    const corrupted = `scrypt$16384$8$1$${validSaltHex}$`;
+    await expect(verifyPassword("anything", corrupted)).resolves.toBe(false);
+  });
+
+  it("CR-01: rejects a stored hash whose decoded byte length isn't exactly KEY_LEN (32)", async () => {
+    const encoded = await hashPassword("the real password");
+    const parts = encoded.split("$");
+    const validSaltHex = parts[4] ?? "";
+    // 20 bytes of valid hex -- well-formed hex, wrong decoded length.
+    const wrongLengthHashHex = "aa".repeat(20);
+    const corrupted = `scrypt$16384$8$1$${validSaltHex}$${wrongLengthHashHex}`;
+    await expect(verifyPassword("anything", corrupted)).resolves.toBe(false);
+  });
+
+  it("CR-01: rejects a stored salt whose decoded byte length isn't exactly SALT_LEN (16)", async () => {
+    const encoded = await hashPassword("the real password");
+    const parts = encoded.split("$");
+    const validHashHex = parts[5] ?? "";
+    // 8 bytes of valid hex -- well-formed hex, wrong decoded length.
+    const wrongLengthSaltHex = "bb".repeat(8);
+    const corrupted = `scrypt$16384$8$1$${wrongLengthSaltHex}$${validHashHex}`;
+    await expect(verifyPassword("anything", corrupted)).resolves.toBe(false);
+  });
+
+  it("CR-01: rejects a tampered N that is not a power of two or exceeds the bound, without invoking scrypt", async () => {
+    const encoded = await hashPassword("the real password");
+    const parts = encoded.split("$");
+    const notPowerOfTwo = [parts[0], "16000", parts[2], parts[3], parts[4], parts[5]].join("$");
+    await expect(verifyPassword("anything", notPowerOfTwo)).resolves.toBe(false);
+
+    const tooLargeN = [parts[0], String(2 ** 30), parts[2], parts[3], parts[4], parts[5]].join(
+      "$",
+    );
+    await expect(verifyPassword("anything", tooLargeN)).resolves.toBe(false);
+  });
+
+  it("CR-01: rejects a tampered negative/non-integer/zero r or p", async () => {
+    const encoded = await hashPassword("the real password");
+    const parts = encoded.split("$");
+
+    const negativeR = [parts[0], parts[1], "-1", parts[3], parts[4], parts[5]].join("$");
+    await expect(verifyPassword("anything", negativeR)).resolves.toBe(false);
+
+    const fractionalP = [parts[0], parts[1], parts[2], "1.5", parts[4], parts[5]].join("$");
+    await expect(verifyPassword("anything", fractionalP)).resolves.toBe(false);
+
+    const zeroP = [parts[0], parts[1], parts[2], "0", parts[4], parts[5]].join("$");
+    await expect(verifyPassword("anything", zeroP)).resolves.toBe(false);
+  });
+
   it("stores a self-describing scrypt$N$r$p$salt$hash string", async () => {
     const encoded = await hashPassword("password1");
     const parts = encoded.split("$");

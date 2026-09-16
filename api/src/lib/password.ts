@@ -31,6 +31,25 @@ const SCRYPT_P = 1;
 const KEY_LEN = 32;
 const SALT_LEN = 16;
 
+// verifyPassword reads N/r/p back out of the stored string (see D-14 above),
+// so a future hashPassword is free to raise them -- but a corrupted or
+// hand-edited record must not be able to hand scrypt an absurd N/r/p. These
+// bounds are generous headroom above today's SCRYPT_N/R/P (enough for a
+// real future upgrade) while still rejecting hostile values before they
+// ever reach scrypt: a large-enough N/r blows past Node's default maxmem
+// (and throws) but only *after* burning real CPU/memory getting there, and
+// N/r/p that are simply nonsensical (negative, fractional, not a power of
+// two for N) have no reason to ever reach the scrypt call at all.
+const MAX_SCRYPT_N = 2 ** 20; // 1,048,576 -- well above SCRYPT_N (2^14)
+const MAX_SCRYPT_R = 64; // well above SCRYPT_R (8)
+const MAX_SCRYPT_P = 16; // well above SCRYPT_P (1)
+const SCRYPT_MAXMEM = 32 * 1024 * 1024; // Node's scrypt() default maxmem
+
+// A stored hex component must be strictly hex, even-length hex -- anything
+// else must be rejected before ever reaching Buffer.from, which silently
+// truncates invalid hex instead of throwing (see verifyPassword below).
+const HEX_RE = /^[0-9a-f]+$/i;
+
 export async function hashPassword(password: string): Promise<string> {
   const salt = randomBytes(SALT_LEN);
   const derivedKey = await scryptAsync(password, salt, KEY_LEN, {
@@ -48,21 +67,49 @@ export async function verifyPassword(password: string, encoded: string): Promise
   const N = Number(nStr);
   const r = Number(rStr);
   const p = Number(pStr);
-  if (!Number.isFinite(N) || !Number.isFinite(r) || !Number.isFinite(p)) return false;
-  let salt: Buffer;
-  let expected: Buffer;
-  try {
-    salt = Buffer.from(saltHex ?? "", "hex");
-    expected = Buffer.from(hashHex ?? "", "hex");
-  } catch {
+  if (
+    !Number.isInteger(N) ||
+    N < 2 ||
+    (N & (N - 1)) !== 0 ||
+    N > MAX_SCRYPT_N ||
+    !Number.isInteger(r) ||
+    r < 1 ||
+    r > MAX_SCRYPT_R ||
+    !Number.isInteger(p) ||
+    p < 1 ||
+    p > MAX_SCRYPT_P ||
+    128 * N * r > SCRYPT_MAXMEM
+  ) {
     return false;
   }
-  // Derive at expected.length (never a hardcoded KEY_LEN): timingSafeEqual
-  // throws on a byte-length mismatch instead of returning false, so a
-  // corrupted stored string must reject here, not crash the caller.
+  // Buffer.from(str, "hex") never throws on invalid input -- it silently
+  // stops decoding at the first invalid byte pair (returning the empty
+  // buffer if the very first pair is bad), instead of throwing. A malformed
+  // hex component must be rejected by strict pattern match *before* ever
+  // calling Buffer.from, or a garbage hashHex/saltHex can decode to a
+  // zero-length (or otherwise wrong-length) buffer that later compares
+  // equal to another zero/short-length buffer regardless of password.
+  if (
+    !saltHex ||
+    !hashHex ||
+    !HEX_RE.test(saltHex) ||
+    !HEX_RE.test(hashHex) ||
+    saltHex.length % 2 !== 0 ||
+    hashHex.length % 2 !== 0
+  ) {
+    return false;
+  }
+  const salt = Buffer.from(saltHex, "hex");
+  const expected = Buffer.from(hashHex, "hex");
+  // Require exact, fixed lengths (never derive at whatever length happened
+  // to decode): a stored hash/salt that isn't exactly KEY_LEN/SALT_LEN
+  // bytes is itself corruption and must reject here, not silently drive a
+  // zero- or wrong-length scrypt derivation that can spuriously compare
+  // equal in timingSafeEqual.
+  if (salt.length !== SALT_LEN || expected.length !== KEY_LEN) return false;
   let actual: Buffer;
   try {
-    actual = await scryptAsync(password, salt, expected.length, { N, r, p });
+    actual = await scryptAsync(password, salt, KEY_LEN, { N, r, p });
   } catch {
     return false;
   }
