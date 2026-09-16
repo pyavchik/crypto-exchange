@@ -42,6 +42,17 @@ function defaultProps(overrides: Partial<MarketsViewProps> = {}): MarketsViewPro
   };
 }
 
+// 03-04: each pair cell is now a router Link to that coin's trade route, so
+// every MarketsView render needs a router context, not just the route-level
+// cases that already used one below.
+function renderMarketsView(props: MarketsViewProps): string {
+  return renderToStaticMarkup(
+    <MemoryRouter>
+      <MarketsView {...props} />
+    </MemoryRouter>,
+  );
+}
+
 function okState(
   data: Partial<MarketsResponse> = {},
   requestId: string | null = null,
@@ -60,12 +71,12 @@ function okState(
 
 describe("MarketsView", () => {
   it("renders a loading line and no table in the loading state", () => {
-    const markup = renderToStaticMarkup(<MarketsView {...defaultProps()} />);
+    const markup = renderMarketsView(defaultProps());
     expect(markup).toContain("Loading markets");
     expect(markup).not.toContain('data-testid="markets-table"');
   });
 
-  it("renders one row per pair carrying the coin id attribute, the pair label, the formatted price and the formatted volume", () => {
+  it("renders one row per pair carrying the coin id attribute, the pair label, the formatted price and the formatted volume, each pair label linking to that coin's trade route", () => {
     const data: MarketsResponse = {
       pairs: [
         makePair({ id: "bitcoin", pair: "BTC/USDT", price: 75755, volume24h: 39122950768 }),
@@ -74,8 +85,8 @@ describe("MarketsView", () => {
       fetchedAt: "2026-09-16T09:59:30.000Z",
       stale: false,
     };
-    const markup = renderToStaticMarkup(
-      <MarketsView {...defaultProps({ state: { kind: "ok", data, requestId: "req-1" } })} />,
+    const markup = renderMarketsView(
+      defaultProps({ state: { kind: "ok", data, requestId: "req-1" } }),
     );
 
     expect(markup).toContain('data-testid="markets-table"');
@@ -85,6 +96,8 @@ describe("MarketsView", () => {
     expect(markup).toContain("BTC/USDT");
     expect(markup).toContain("$75,755.00");
     expect(markup).toContain("39.1B");
+    expect(markup).toContain('href="/trade/bitcoin"');
+    expect(markup).toContain('href="/trade/ethereum"');
   });
 
   it("renders a down direction attribute for a negative 24h change and up for a positive one", () => {
@@ -96,8 +109,8 @@ describe("MarketsView", () => {
       fetchedAt: "2026-09-16T09:59:30.000Z",
       stale: false,
     };
-    const markup = renderToStaticMarkup(
-      <MarketsView {...defaultProps({ state: { kind: "ok", data, requestId: null } })} />,
+    const markup = renderMarketsView(
+      defaultProps({ state: { kind: "ok", data, requestId: null } }),
     );
 
     expect(markup).toContain('data-direction="down"');
@@ -105,35 +118,31 @@ describe("MarketsView", () => {
   });
 
   it("renders the quote-convention note with a payload", () => {
-    const markup = renderToStaticMarkup(<MarketsView {...defaultProps({ state: okState() })} />);
+    const markup = renderMarketsView(defaultProps({ state: okState() }));
 
     expect(markup).toContain('data-testid="quote-convention"');
     expect(markup).toContain("USDT");
   });
 
   it("renders a failure message and, when the error carries one, the request id in the error state", () => {
-    const withRequestId = renderToStaticMarkup(
-      <MarketsView
-        {...defaultProps({
-          state: { kind: "error", error: new ApiError(502, "UPSTREAM_UNAVAILABLE", "req-99") },
-        })}
-      />,
+    const withRequestId = renderMarketsView(
+      defaultProps({
+        state: { kind: "error", error: new ApiError(502, "UPSTREAM_UNAVAILABLE", "req-99") },
+      }),
     );
     expect(withRequestId).toContain("Unable to load markets");
     expect(withRequestId).toContain("req-99");
 
-    const withoutRequestId = renderToStaticMarkup(
-      <MarketsView
-        {...defaultProps({
-          state: { kind: "error", error: new ApiError(null, "NETWORK_ERROR", null) },
-        })}
-      />,
+    const withoutRequestId = renderMarketsView(
+      defaultProps({
+        state: { kind: "error", error: new ApiError(null, "NETWORK_ERROR", null) },
+      }),
     );
     expect(withoutRequestId).toContain("Unable to load markets");
   });
 
   it("renders the search input carrying its test id and the last-updated line carrying its test id", () => {
-    const markup = renderToStaticMarkup(<MarketsView {...defaultProps({ state: okState() })} />);
+    const markup = renderMarketsView(defaultProps({ state: okState() }));
     expect(markup).toContain('data-testid="markets-search"');
     expect(markup).toContain('data-testid="markets-updated"');
   });
@@ -143,8 +152,8 @@ describe("MarketsView", () => {
     const now = () => Date.parse("2026-09-16T10:00:00.000Z");
     const state = okState({ fetchedAt });
 
-    const first = renderToStaticMarkup(<MarketsView {...defaultProps({ state, now })} />);
-    const second = renderToStaticMarkup(<MarketsView {...defaultProps({ state, now })} />);
+    const first = renderMarketsView(defaultProps({ state, now }));
+    const second = renderMarketsView(defaultProps({ state, now }));
 
     expect(first).toContain("5 minutes ago");
     expect(first).toBe(second);
@@ -161,15 +170,11 @@ describe("MarketsView", () => {
     };
     const state: MarketsState = { kind: "ok", data, requestId: null };
 
-    const filtered = renderToStaticMarkup(
-      <MarketsView {...defaultProps({ state, query: "eth" })} />,
-    );
+    const filtered = renderMarketsView(defaultProps({ state, query: "eth" }));
     expect((filtered.match(/data-testid="markets-row"/g) ?? []).length).toBe(1);
     expect(filtered).toContain('data-coin-id="ethereum"');
 
-    const noMatches = renderToStaticMarkup(
-      <MarketsView {...defaultProps({ state, query: "doesnotexist" })} />,
-    );
+    const noMatches = renderMarketsView(defaultProps({ state, query: "doesnotexist" }));
     expect(noMatches).not.toContain('data-testid="markets-row"');
     expect(noMatches).toContain("doesnotexist");
   });
@@ -183,7 +188,7 @@ describe("MarketsView", () => {
     const state: MarketsState = { kind: "ok", data, requestId: null };
     const sort: SortState = { key: "price", direction: "asc" };
 
-    const markup = renderToStaticMarkup(<MarketsView {...defaultProps({ state, sort })} />);
+    const markup = renderMarketsView(defaultProps({ state, sort }));
 
     const rowIds = [...markup.matchAll(/data-coin-id="([^"]+)"/g)].map((m) => m[1]);
     expect(rowIds).toEqual(["low", "high"]);
@@ -196,7 +201,7 @@ describe("MarketsView", () => {
   });
 
   it("renders each sortable header as a real button element with accessible text, not a clickable cell", () => {
-    const markup = renderToStaticMarkup(<MarketsView {...defaultProps({ state: okState() })} />);
+    const markup = renderMarketsView(defaultProps({ state: okState() }));
     expect(markup).toContain('<button type="button" data-sort-key="price"');
     expect(markup).toContain("Price</button>");
     expect(markup).toContain("24h %</button>");
@@ -204,26 +209,26 @@ describe("MarketsView", () => {
   });
 
   it("renders the banner when the payload's stale flag is true, and not when it is false", () => {
-    const staleMarkup = renderToStaticMarkup(
-      <MarketsView {...defaultProps({ state: okState({ stale: true }) })} />,
-    );
-    const freshMarkup = renderToStaticMarkup(
-      <MarketsView {...defaultProps({ state: okState({ stale: false }) })} />,
-    );
+    const staleMarkup = renderMarketsView(defaultProps({ state: okState({ stale: true }) }));
+    const freshMarkup = renderMarketsView(defaultProps({ state: okState({ stale: false }) }));
 
     expect(staleMarkup).toContain('data-testid="stale-banner"');
     expect(freshMarkup).not.toContain('data-testid="stale-banner"');
   });
 
   it("renders the CoinGecko attribution text on the page itself", () => {
-    const markup = renderToStaticMarkup(<MarketsView {...defaultProps({ state: okState() })} />);
+    const markup = renderMarketsView(defaultProps({ state: okState() }));
     expect(markup.toLowerCase()).toContain("coingecko");
   });
 });
 
 describe("Markets", () => {
   it("renders in the loading state on mount (no data fetch resolves during SSR)", () => {
-    const markup = renderToStaticMarkup(<Markets />);
+    const markup = renderToStaticMarkup(
+      <MemoryRouter>
+        <Markets />
+      </MemoryRouter>,
+    );
     expect(markup).toContain("Loading markets");
   });
 });

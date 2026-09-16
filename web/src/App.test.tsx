@@ -4,35 +4,14 @@ import { MemoryRouter, Navigate, matchRoutes } from "react-router";
 import { AppRoutes, appRoutes } from "./App.js";
 import { AuthProvider, type AuthState } from "./lib/auth.js";
 
-// /orders moved out of this shared loop in 02-03: it is now a
-// ProtectedRoute-guarded page (D-28), so rendering it without an
-// authenticated provider no longer shows the ComingSoon page — see the
-// dedicated guarded-route tests below, which cover /orders together with
-// /wallet. /markets moved out in 03-01: it now renders the real Markets page
-// (D-01 replaces the placeholder) — see the dedicated test below.
-const COMING_SOON_ROUTE_CASES = [{ path: "/trade", title: "Trade" }] as const;
+// /orders is the only remaining ComingSoon placeholder. /wallet moved out in
+// 02-03 (ProtectedRoute-guarded, D-28) — see the dedicated guarded-route
+// tests below, which cover /orders together with /wallet. /markets moved out
+// in 03-01, /trade and /trade/:id moved out in 03-04: they now render the
+// real Markets/Trade pages (D-01 replaces each placeholder) — see the
+// dedicated tests below.
 
 describe("AppRoutes", () => {
-  it.each(COMING_SOON_ROUTE_CASES)(
-    "renders the shell and the $title page at $path",
-    ({ path, title }) => {
-      const markup = renderToStaticMarkup(
-        <MemoryRouter initialEntries={[path]}>
-          <AppRoutes />
-        </MemoryRouter>,
-      );
-
-      expect(markup).toContain(`<h1>${title}</h1>`);
-      expect(markup).toContain("Coming soon");
-      expect(markup).toContain('href="/markets"');
-      expect(markup).toContain('href="/trade"');
-      expect(markup).toContain('href="/wallet"');
-      expect(markup).toContain('href="/orders"');
-      expect(markup).toContain("Powered by CoinGecko");
-      expect(markup).toContain('rel="noopener noreferrer"');
-    },
-  );
-
   it("renders the Markets page (not the ComingSoon placeholder) at /markets, even for a logged-out visitor", () => {
     const markup = renderToStaticMarkup(
       <MemoryRouter initialEntries={["/markets"]}>
@@ -44,6 +23,30 @@ describe("AppRoutes", () => {
     expect(markup).not.toContain("Coming soon");
     expect(markup).toContain('href="/markets"');
     expect(markup).toContain("Powered by CoinGecko");
+  });
+
+  it("renders the Trade page (not the ComingSoon placeholder) at /trade/:id, even for a logged-out visitor", () => {
+    const markup = renderToStaticMarkup(
+      <MemoryRouter initialEntries={["/trade/bitcoin"]}>
+        <AppRoutes />
+      </MemoryRouter>,
+    );
+
+    expect(markup).toContain("<h1>Trade</h1>");
+    expect(markup).not.toContain("Coming soon");
+    expect(markup).toContain('href="/trade"');
+    expect(markup).toContain("Powered by CoinGecko");
+  });
+
+  it("renders the TradeIndex loading shell (not the ComingSoon placeholder) at the bare /trade route", () => {
+    const markup = renderToStaticMarkup(
+      <MemoryRouter initialEntries={["/trade"]}>
+        <AppRoutes />
+      </MemoryRouter>,
+    );
+
+    expect(markup).toContain("<h1>Trade</h1>");
+    expect(markup).not.toContain("Coming soon");
   });
 
   it("renders the guard's loading shell (not the page) at /wallet and /orders with no AuthProvider — default context state is loading", () => {

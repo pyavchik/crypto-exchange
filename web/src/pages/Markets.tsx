@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router";
 import type { MarketsResponse } from "../lib/api.js";
 import {
   formatCompact,
@@ -147,7 +148,9 @@ export function MarketsView({
               const change = formatPercent(pair.change24hPct);
               return (
                 <tr key={pair.id} data-testid="markets-row" data-coin-id={pair.id}>
-                  <td>{pair.pair}</td>
+                  <td>
+                    <Link to={`/trade/${pair.id}`}>{pair.pair}</Link>
+                  </td>
                   <td>{formatPrice(pair.price)}</td>
                   <td data-direction={change.direction}>{change.text}</td>
                   <td>{formatCompact(pair.volume24h)}</td>

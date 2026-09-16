@@ -14,6 +14,7 @@ import { ComingSoon } from "./pages/ComingSoon.js";
 import { Login } from "./pages/Login.js";
 import { Markets } from "./pages/Markets.js";
 import { Signup } from "./pages/Signup.js";
+import { Trade, TradeIndex } from "./pages/Trade.js";
 import { Wallet } from "./pages/Wallet.js";
 
 function navLinkClassName({ isActive }: { isActive: boolean }): string {
@@ -104,8 +105,9 @@ export function AppLayout() {
   );
 }
 
-// D-01: dark shell now, four placeholder routes; later phases fill each
-// ComingSoon page in without restyling the shell.
+// D-01: dark shell; Markets (03-01), Wallet (02) and Trade (03-04) now
+// replace their original ComingSoon placeholders. Orders (Phase 5) is the
+// only page still pending.
 export const appRoutes: RouteObject[] = [
   {
     element: <AppLayout />,
@@ -117,12 +119,11 @@ export const appRoutes: RouteObject[] = [
       },
       {
         path: "trade",
-        element: (
-          <ComingSoon
-            title="Trade"
-            description="Coming soon: price chart and order panel (Phases 3-5)"
-          />
-        ),
+        element: <TradeIndex />,
+      },
+      {
+        path: "trade/:id",
+        element: <Trade />,
       },
       {
         path: "wallet",
