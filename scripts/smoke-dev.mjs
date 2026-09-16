@@ -513,6 +513,99 @@ async function main() {
       );
     }
 
+    // (l) log out through the nav control present on every page (D-30,
+    // T-02-21), and wait for the nav to show the signed-out state. This
+    // confirms the session was actually revoked server-side: performLogout
+    // awaits the POST /api/logout revoke request before the context flips to
+    // "anonymous", and the nav only renders "Log in"/"Sign up" once that
+    // state lands.
+    await page.getByRole("button", { name: "Log out" }).click();
+    await page.getByRole("link", { name: "Log in" }).waitFor({ state: "visible", timeout: 10_000 });
+
+    // (m) the guarded route must not render wallet contents after logout —
+    // assert on both the resulting URL and the page content, so a guard that
+    // renders the login markup at the wrong URL (or the wallet markup at the
+    // right one) still fails (T-02-21). A full page.goto (rather than a
+    // client-side NavLink click) proves the guard from a cold mount and
+    // sidesteps a race with handleLogout's own pending navigate("/login")
+    // call, which is a separate async step from the state flip above and can
+    // otherwise still be in flight when the next navigation starts.
+    await page.goto(`http://localhost:${webPort}/wallet`);
+    await page
+      .getByRole("heading", { name: "Log in" })
+      .waitFor({ state: "visible", timeout: 15_000 });
+    const guardedRoutePathname = new URL(page.url()).pathname;
+    if (guardedRoutePathname !== "/login") {
+      fail(
+        `browser: visiting /wallet after logout landed on "${guardedRoutePathname}", expected /login`,
+      );
+    }
+    const loggedOutWalletBody = (await page.locator("body").textContent()) ?? "";
+    if (loggedOutWalletBody.includes("10000.00000000")) {
+      fail(
+        "browser: /wallet rendered balance content after logout — the guarded route leaked wallet data",
+      );
+    }
+
+    // (n) log back in through /login with the same credentials used at
+    // signup (AUTH-02) — the nav shows the email again and the wallet shows
+    // the grant again.
+    await page.locator('input[name="email"]').fill(smokeEmail);
+    await page.locator('input[name="password"]').fill(smokePassword);
+    await page.getByRole("button", { name: "Log in" }).click();
+
+    await waitForNavAccount(
+      (text) => text.includes(smokeEmail),
+      15_000,
+      `"${smokeEmail}" after logging back in`,
+    );
+    const afterLoginBodyText = (await page.locator("body").textContent()) ?? "";
+    if (!afterLoginBodyText.includes("10000.00000000") || !afterLoginBodyText.includes("USDT")) {
+      fail(
+        `browser: wallet did not show the 10000.00000000 USDT grant after logging back in (body: "${afterLoginBodyText}")`,
+      );
+    }
+
+    // (o) the session value must remain unreadable from page JavaScript at
+    // every point after a real login, not just after signup (T-02-22). This
+    // callback runs inside the browser page context, not this Node script.
+    // eslint-disable-next-line no-undef
+    const documentCookieAfterLogin = await page.evaluate(() => document.cookie);
+    if (documentCookieAfterLogin.includes("session")) {
+      fail(
+        `browser: document.cookie exposed a "session" entry after logging back in: "${documentCookieAfterLogin}"`,
+      );
+    }
+
+    // (p) AUTH-05's exactly-once guarantee must still hold after a full
+    // logout/login round trip — signing in and out repeatedly must never
+    // re-credit an account.
+    const finalAuthDb = new Database(databasePath, { readonly: true });
+    const finalUserRow = finalAuthDb.prepare("select count(*) as n from users").get();
+    const finalBalanceRow = finalAuthDb
+      .prepare("select count(*) as n, amount from balances where amount = ?")
+      .get("10000.00000000");
+    finalAuthDb.close();
+    if (finalUserRow.n !== 1) {
+      fail(`users table has ${finalUserRow.n} rows after logout/login, expected exactly 1`);
+    }
+    if (finalBalanceRow.n !== 1) {
+      fail(
+        `balances table has ${finalBalanceRow.n} rows with amount 10000.00000000 after logout/login, expected exactly 1`,
+      );
+    }
+
+    // (q) final page-error and console-error assertion, naming this section
+    // so a React error during logout or login fails the run rather than
+    // passing silently.
+    if (pageErrors.length > 0 || consoleErrors.length > 0) {
+      fail(
+        `browser: page/console errors detected during the logout/login journey — pageErrors: ${JSON.stringify(
+          pageErrors,
+        )}, consoleErrors: ${JSON.stringify(consoleErrors)}`,
+      );
+    }
+
     console.log("SMOKE OK");
   } catch (error) {
     exitCode = 1;
