@@ -101,9 +101,7 @@ describe("hashPassword / verifyPassword", () => {
     const notPowerOfTwo = [parts[0], "16000", parts[2], parts[3], parts[4], parts[5]].join("$");
     await expect(verifyPassword("anything", notPowerOfTwo)).resolves.toBe(false);
 
-    const tooLargeN = [parts[0], String(2 ** 30), parts[2], parts[3], parts[4], parts[5]].join(
-      "$",
-    );
+    const tooLargeN = [parts[0], String(2 ** 30), parts[2], parts[3], parts[4], parts[5]].join("$");
     await expect(verifyPassword("anything", tooLargeN)).resolves.toBe(false);
   });
 
