@@ -22,6 +22,8 @@ actuals:
   tasks: 3
   commits: 3
 
+plan_head_before: b60e487f73448585c3d1290d0786b52d636935ac
+
 tech-stack:
   added: ["playwright-core@1.63.0 (root devDependency only)"]
   patterns:
