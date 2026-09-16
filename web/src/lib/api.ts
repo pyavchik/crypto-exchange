@@ -396,7 +396,15 @@ async function parseErrorResponse(
       }
       return apiError;
     }
-  } catch {
+  } catch (error) {
+    // WR-04 (carried forward from 02-REVIEW.md WR-01): a genuine AbortError
+    // firing while this non-2xx body is still being read must propagate,
+    // the same as the already-fixed 2xx path (parseJsonBody) and the
+    // network-stage catch above -- never relabelled as a synthetic
+    // HTTP_<status> error.
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw error;
+    }
     // Non-JSON or unparsable body — fall through to the generic HTTP_<status> code.
   }
   return new ApiError(response.status, `HTTP_${response.status}`, headerRequestId);

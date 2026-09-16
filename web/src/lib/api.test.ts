@@ -340,4 +340,18 @@ describe("fetchMarketChart", () => {
 
     await expect(fetchMarketChart("bitcoin", "1d", { fetchImpl })).rejects.toBe(abortError);
   });
+
+  // WR-04 (carried forward from 02-REVIEW.md WR-01): an AbortError raised
+  // while reading a NON-2xx body (parseErrorResponse's stage, not
+  // parseJsonBody's) must also surface as an abort, not get relabelled as a
+  // synthetic ApiError("HTTP_<status>"). Trade.tsx's chart-fetch effect
+  // aborts in-flight requests on every window/coin-id change, so this is the
+  // call site that made the gap reachable in practice.
+  it("rethrows an AbortError raised mid-body-read of a non-2xx response instead of wrapping it as HTTP_<status>", async () => {
+    const fetchImpl = (async () => abortingJsonResponse(404, "r-abort-404")) as typeof fetch;
+
+    const rejection = fetchMarketChart("bitcoin", "1d", { fetchImpl });
+    await expect(rejection).rejects.toBeInstanceOf(DOMException);
+    await expect(rejection).rejects.toMatchObject({ name: "AbortError" });
+  });
 });
