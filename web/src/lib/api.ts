@@ -308,6 +308,55 @@ export async function fetchMarkets(
   return parseJsonBody<MarketsResponse>(response, headerRequestId);
 }
 
+// Mirrors api/src/lib/marketData.ts's CHART_WINDOWS/ChartPoint/ChartPayload —
+// kept in sync manually until a shared types package exists (Out of Scope
+// for Phase 1, see SKELETON.md).
+export const CHART_WINDOWS = ["1d", "7d", "30d"] as const;
+export type ChartWindow = (typeof CHART_WINDOWS)[number];
+
+export interface ChartPoint {
+  time: number;
+  value: number;
+}
+
+export interface ChartResponse {
+  id: string;
+  window: ChartWindow;
+  points: ChartPoint[];
+  fetchedAt: string;
+  stale: boolean;
+}
+
+// GET /api/markets/:id/chart is public (D-44) — no credentials, following
+// fetchMarkets's structure exactly. Never interpolates anything but the
+// already-validated coin id and window into the URL.
+export async function fetchMarketChart(
+  id: string,
+  window: ChartWindow,
+  options: { signal?: AbortSignal; fetchImpl?: typeof fetch } = {},
+): Promise<ApiResult<ChartResponse>> {
+  const { signal, fetchImpl = fetch } = options;
+
+  let response: Response;
+  try {
+    response = await fetchImpl(
+      `${API_BASE_URL}/api/markets/${encodeURIComponent(id)}/chart?window=${encodeURIComponent(window)}`,
+      { signal },
+    );
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw error;
+    }
+    throw new ApiError(null, "NETWORK_ERROR", null);
+  }
+
+  const headerRequestId = response.headers.get("x-request-id");
+  if (!response.ok) {
+    throw await parseErrorResponse(response, headerRequestId);
+  }
+  return parseJsonBody<ChartResponse>(response, headerRequestId);
+}
+
 interface ErrorResponseBody {
   error?: { code?: unknown; message?: unknown; requestId?: unknown; fields?: unknown };
 }

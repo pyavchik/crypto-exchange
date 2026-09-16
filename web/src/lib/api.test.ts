@@ -1,5 +1,14 @@
 import { describe, expect, it } from "vitest";
-import { ApiError, fetchHealth, fetchWallet, login, logout, type HealthResponse } from "./api.js";
+import {
+  ApiError,
+  fetchHealth,
+  fetchMarketChart,
+  fetchWallet,
+  login,
+  logout,
+  type ChartResponse,
+  type HealthResponse,
+} from "./api.js";
 
 const HEALTH_BODY: HealthResponse = {
   status: "ok",
@@ -259,5 +268,76 @@ describe("fetchWallet", () => {
     const rejection = fetchWallet({ fetchImpl });
     await expect(rejection).rejects.toBeInstanceOf(DOMException);
     await expect(rejection).rejects.toMatchObject({ name: "AbortError" });
+  });
+});
+
+describe("fetchMarketChart", () => {
+  const CHART_BODY: ChartResponse = {
+    id: "bitcoin",
+    window: "7d",
+    points: [
+      { time: 1_700_000_000, value: 100 },
+      { time: 1_700_000_060, value: 101 },
+    ],
+    fetchedAt: "2026-09-16T10:00:00.000Z",
+    stale: false,
+  };
+
+  it("sends no credentials, encodes the id in the path, and puts the window in the query", async () => {
+    let capturedUrl: string | undefined;
+    let capturedInit: RequestInit | undefined;
+    const fetchImpl = (async (url, init) => {
+      capturedUrl = String(url);
+      capturedInit = init;
+      return new Response(JSON.stringify(CHART_BODY), {
+        status: 200,
+        headers: { "x-request-id": "r-chart" },
+      });
+    }) as typeof fetch;
+
+    const result = await fetchMarketChart("bitcoin", "7d", { fetchImpl });
+
+    expect(capturedUrl).toContain("/api/markets/bitcoin/chart");
+    expect(capturedUrl).toContain("window=7d");
+    expect(capturedInit?.credentials).toBeUndefined();
+    expect(result.data).toEqual(CHART_BODY);
+    expect(result.requestId).toBe("r-chart");
+  });
+
+  it("URL-encodes a coin id containing characters that need escaping", async () => {
+    let capturedUrl: string | undefined;
+    const fetchImpl = (async (url) => {
+      capturedUrl = String(url);
+      return new Response(JSON.stringify(CHART_BODY), { status: 200 });
+    }) as typeof fetch;
+
+    await fetchMarketChart("weird/id?", "1d", { fetchImpl });
+
+    expect(capturedUrl).toContain(encodeURIComponent("weird/id?"));
+  });
+
+  it("rejects with ApiError UNKNOWN_MARKET and the request id on a 404", async () => {
+    const fetchImpl = (async () =>
+      new Response(
+        JSON.stringify({
+          error: { code: "UNKNOWN_MARKET", message: "Unknown market", requestId: "r-404" },
+        }),
+        { status: 404 },
+      )) as typeof fetch;
+
+    await expect(fetchMarketChart("nope", "1d", { fetchImpl })).rejects.toMatchObject({
+      status: 404,
+      code: "UNKNOWN_MARKET",
+      requestId: "r-404",
+    } satisfies Partial<ApiError>);
+  });
+
+  it("rethrows an aborted signal's error instead of wrapping it as NETWORK_ERROR", async () => {
+    const abortError = new DOMException("aborted", "AbortError");
+    const fetchImpl = (async () => {
+      throw abortError;
+    }) as typeof fetch;
+
+    await expect(fetchMarketChart("bitcoin", "1d", { fetchImpl })).rejects.toBe(abortError);
   });
 });
