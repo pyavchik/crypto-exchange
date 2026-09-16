@@ -17,6 +17,7 @@ import { registerErrorHandlers } from "./lib/errors.js";
 import { createRequireSession, createSessionService } from "./lib/session.js";
 import authRoutes from "./routes/auth.js";
 import healthRoutes, { readApiVersion } from "./routes/health.js";
+import walletRoutes from "./routes/wallet.js";
 
 // Phase 2 populates this from the authenticated session; until then it is
 // always null, but the request-log line (D-07) always has the slot.
@@ -126,13 +127,16 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
 
   const accounts = createAccountService({ db: deps.db, now: deps.now });
   const sessions = createSessionService({ db: deps.db, now: deps.now });
+  const requireSession = createRequireSession(sessions);
 
   await app.register(authRoutes, {
     accounts,
     sessions,
-    requireSession: createRequireSession(sessions),
+    requireSession,
     cookieSecure: deps.config.cookieSecure,
   });
+
+  await app.register(walletRoutes, { accounts, requireSession });
 
   return app;
 }

@@ -1,7 +1,19 @@
 import type { FastifyInstance, FastifyPluginCallback, FastifyReply, FastifyRequest } from "fastify";
 import type { AccountService } from "../lib/accounts.js";
-import { hashPassword } from "../lib/password.js";
-import { setSessionCookie, type SessionService } from "../lib/session.js";
+import { hashPassword, verifyPassword } from "../lib/password.js";
+import {
+  clearSessionCookie,
+  SESSION_COOKIE_NAME,
+  setSessionCookie,
+  type SessionService,
+} from "../lib/session.js";
+
+// D-26/T-02-10: a fixed, valid-format dummy hash, computed once at module
+// load. Used as the verification target when an email is unregistered, so
+// verifyPassword still runs the same scrypt derivation either way — an
+// unknown email and a wrong password take comparable time, and the login
+// endpoint never becomes an account-existence oracle by timing.
+const DUMMY_PASSWORD_HASH = await hashPassword("dummy-password-for-constant-time-login");
 
 export interface AuthRoutesOptions {
   accounts: AccountService;
@@ -45,6 +57,15 @@ const SESSION_RESPONSE_SCHEMA = {
         },
       },
     },
+  },
+} as const;
+
+const LOGOUT_RESPONSE_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["ok"],
+  properties: {
+    ok: { type: "boolean" },
   },
 } as const;
 
@@ -108,6 +129,58 @@ const authRoutes: FastifyPluginCallback<AuthRoutesOptions> = (app: FastifyInstan
       }
       const balances = opts.accounts.listBalances(userId);
       return reply.status(200).send({ email: account.email, balances });
+    },
+  );
+
+  app.post<{ Body: SignupBody }>(
+    "/api/login",
+    { schema: { body: SIGNUP_BODY_SCHEMA, response: { 200: SESSION_RESPONSE_SCHEMA } } },
+    async (request, reply) => {
+      const email = normalizeEmail(request.body.email);
+      const password = request.body.password;
+
+      const account = opts.accounts.findByEmail(email);
+      // T-02-10: always run a verification pass, even when no account
+      // matches, so an unknown email and a wrong password take comparable
+      // time — see DUMMY_PASSWORD_HASH above.
+      const passwordValid = await verifyPassword(password, account?.passwordHash ?? DUMMY_PASSWORD_HASH);
+
+      if (!account || !passwordValid) {
+        // D-26: one identical message, status and code for both failure
+        // modes — login must never reveal which accounts exist.
+        const err = new Error("Invalid email or password") as Error & {
+          statusCode: number;
+          code: string;
+        };
+        err.statusCode = 401;
+        err.code = "INVALID_CREDENTIALS";
+        throw err;
+      }
+
+      const { token } = opts.sessions.create(account.id);
+      setSessionCookie(reply, token, opts.cookieSecure);
+
+      const balances = opts.accounts.listBalances(account.id);
+      return reply.status(200).send({ email: account.email, balances });
+    },
+  );
+
+  app.post(
+    "/api/logout",
+    { schema: { response: { 200: LOGOUT_RESPONSE_SCHEMA } } },
+    async (request, reply) => {
+      // No requireSession preHandler here — D-18: logout is idempotent by
+      // design, so an absent, already-invalid or already-used session is a
+      // success, not an error.
+      const rawToken = request.cookies[SESSION_COOKIE_NAME];
+      if (rawToken) {
+        opts.sessions.revoke(rawToken);
+      }
+      // Cleared through the same helper (and therefore the same scoping
+      // options) that set the cookie — a mismatched path would leave the
+      // live cookie in the browser (Pitfall 4).
+      clearSessionCookie(reply, opts.cookieSecure);
+      return reply.status(200).send({ ok: true });
     },
   );
 
