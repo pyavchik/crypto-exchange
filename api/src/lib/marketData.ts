@@ -327,8 +327,16 @@ export function createMarketDataService(deps: MarketDataDeps): MarketDataService
       try {
         const body: unknown = await response!.json();
         pairs = toMarketPairs(body);
-      } catch {
-        reason = "malformed_body";
+      } catch (error) {
+        // WR-03: the same AbortSignal.timeout governs the whole fetch
+        // lifecycle including body streaming, so a timeout can fire here
+        // too, not just around fetchImpl above. Misclassifying that as
+        // "malformed_body" corrupts the D-43 stale-serve RCA log's reason
+        // field.
+        reason =
+          error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError")
+            ? "timeout"
+            : "malformed_body";
       }
     }
 
@@ -398,8 +406,12 @@ export function createMarketDataService(deps: MarketDataDeps): MarketDataService
       try {
         const body: unknown = await response!.json();
         points = toChartPoints(body);
-      } catch {
-        reason = "malformed_body";
+      } catch (error) {
+        // WR-03: see the identical comment in fetchMarkets above.
+        reason =
+          error instanceof Error && (error.name === "AbortError" || error.name === "TimeoutError")
+            ? "timeout"
+            : "malformed_body";
       }
     }
 

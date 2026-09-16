@@ -290,6 +290,31 @@ describe("createMarketDataService", () => {
     });
   });
 
+  it("classifies a timeout that fires mid-body-read as reason timeout, not malformed_body (WR-03)", async () => {
+    const { log } = makeLogger();
+    // The same AbortSignal.timeout governs the whole fetch lifecycle
+    // including body streaming: headers arrive (status 200) but the
+    // signal fires while response.json() is still reading the stream, so
+    // .json() rejects with an AbortError/TimeoutError rather than a
+    // JSON-parse SyntaxError.
+    const fetchImpl = vi.fn(
+      async () =>
+        ({
+          status: 200,
+          json: () => Promise.reject(new DOMException("The operation timed out.", "TimeoutError")),
+        }) as unknown as Response,
+    ) as unknown as typeof fetch;
+    const service = createMarketDataService({ apiKey: "key", baseUrl: BASE_URL, fetchImpl });
+
+    try {
+      await service.getMarkets({ requestId: "req-1", log });
+      expect.unreachable("expected getMarkets to reject");
+    } catch (error) {
+      expect(error).toBeInstanceOf(MarketDataUpstreamError);
+      expect((error as MarketDataUpstreamError).reason).toBe("timeout");
+    }
+  });
+
   it("logs exactly one upstream call line per real fetch, and the API key never appears in it", async () => {
     const { lines, log } = makeLogger();
     const apiKey = "test-secret-key-123";
@@ -683,5 +708,25 @@ describe("createMarketDataService — getChart", () => {
     expect(staleLines).toHaveLength(1);
     expect(staleLines[0]?.resource).toBe(chartCacheKey("bitcoin", "1d"));
     expect(staleLines[0]?.reason).toBe("http_503");
+  });
+
+  it("classifies a timeout that fires mid-body-read as reason timeout, not malformed_body (WR-03)", async () => {
+    const { log } = makeLogger();
+    const fetchImpl = vi.fn(
+      async () =>
+        ({
+          status: 200,
+          json: () => Promise.reject(new DOMException("The operation timed out.", "TimeoutError")),
+        }) as unknown as Response,
+    ) as unknown as typeof fetch;
+    const service = createMarketDataService({ apiKey: "key", baseUrl: BASE_URL, fetchImpl });
+
+    try {
+      await service.getChart("bitcoin", "1d", { requestId: "req-1", log });
+      expect.unreachable("expected getChart to reject");
+    } catch (error) {
+      expect(error).toBeInstanceOf(MarketDataUpstreamError);
+      expect((error as MarketDataUpstreamError).reason).toBe("timeout");
+    }
   });
 });
