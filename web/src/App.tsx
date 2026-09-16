@@ -7,10 +7,33 @@ import {
   type RouteObject,
 } from "react-router";
 import { HealthBadge } from "./components/HealthBadge.js";
+import { AuthProvider, useAuth } from "./lib/auth.js";
 import { ComingSoon } from "./pages/ComingSoon.js";
+import { Signup } from "./pages/Signup.js";
+import { Wallet } from "./pages/Wallet.js";
 
 function navLinkClassName({ isActive }: { isActive: boolean }): string {
   return isActive ? "nav-link active" : "nav-link";
+}
+
+function AuthNav() {
+  const { state } = useAuth();
+
+  if (state.kind === "authenticated") {
+    // D-30: signed-in email on every page; 02-03 adds the logout control here.
+    return <span className="nav-account">{state.email}</span>;
+  }
+
+  return (
+    <>
+      <NavLink to="/login" className={navLinkClassName}>
+        Log in
+      </NavLink>
+      <NavLink to="/signup" className={navLinkClassName}>
+        Sign up
+      </NavLink>
+    </>
+  );
 }
 
 export function AppLayout() {
@@ -33,6 +56,7 @@ export function AppLayout() {
           <NavLink to="/orders" className={navLinkClassName}>
             Orders
           </NavLink>
+          <AuthNav />
         </nav>
       </header>
       <main className="app-main">
@@ -70,15 +94,8 @@ export const appRoutes: RouteObject[] = [
           />
         ),
       },
-      {
-        path: "wallet",
-        element: (
-          <ComingSoon
-            title="Wallet"
-            description="Coming soon: balances and portfolio value (Phase 4)"
-          />
-        ),
-      },
+      { path: "wallet", element: <Wallet /> },
+      { path: "signup", element: <Signup /> },
       {
         path: "orders",
         element: (
@@ -100,7 +117,9 @@ export function AppRoutes() {
 export function App() {
   return (
     <BrowserRouter>
-      <AppRoutes />
+      <AuthProvider>
+        <AppRoutes />
+      </AuthProvider>
     </BrowserRouter>
   );
 }

@@ -74,6 +74,86 @@ export async function fetchHealth(
   return { data, requestId: headerRequestId };
 }
 
+export interface Balance {
+  asset: string;
+  amount: string;
+}
+
+export interface SessionResponse {
+  email: string;
+  balances: Balance[];
+}
+
+// Shared parse path for both signup and fetchMe: a 2xx body that fails to
+// parse as JSON surfaces as ApiError INVALID_RESPONSE_BODY, matching
+// fetchHealth's contract above rather than throwing a raw SyntaxError.
+async function parseSessionResponse(
+  response: Response,
+  headerRequestId: string | null,
+): Promise<ApiResult<SessionResponse>> {
+  let data: SessionResponse;
+  try {
+    data = (await response.json()) as SessionResponse;
+  } catch {
+    throw new ApiError(response.status, "INVALID_RESPONSE_BODY", headerRequestId);
+  }
+  return { data, requestId: headerRequestId };
+}
+
+// credentials: "include" is what makes the browser attach the session cookie
+// on the cross-origin localhost:5173 -> localhost:3000 call at all — without
+// it the cookie never leaves the browser (D-16/D-17, 02-RESEARCH.md Pattern 5).
+export async function signup(
+  input: { email: string; password: string },
+  options: { signal?: AbortSignal; fetchImpl?: typeof fetch } = {},
+): Promise<ApiResult<SessionResponse>> {
+  const { signal, fetchImpl = fetch } = options;
+
+  let response: Response;
+  try {
+    response = await fetchImpl(`${API_BASE_URL}/api/signup`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+      credentials: "include",
+      signal,
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw error;
+    }
+    throw new ApiError(null, "NETWORK_ERROR", null);
+  }
+
+  const headerRequestId = response.headers.get("x-request-id");
+  if (!response.ok) {
+    throw await parseErrorResponse(response, headerRequestId);
+  }
+  return parseSessionResponse(response, headerRequestId);
+}
+
+export async function fetchMe(
+  options: { signal?: AbortSignal; fetchImpl?: typeof fetch } = {},
+): Promise<ApiResult<SessionResponse>> {
+  const { signal, fetchImpl = fetch } = options;
+
+  let response: Response;
+  try {
+    response = await fetchImpl(`${API_BASE_URL}/api/me`, { credentials: "include", signal });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw error;
+    }
+    throw new ApiError(null, "NETWORK_ERROR", null);
+  }
+
+  const headerRequestId = response.headers.get("x-request-id");
+  if (!response.ok) {
+    throw await parseErrorResponse(response, headerRequestId);
+  }
+  return parseSessionResponse(response, headerRequestId);
+}
+
 interface ErrorResponseBody {
   error?: { code?: unknown; message?: unknown; requestId?: unknown };
 }
