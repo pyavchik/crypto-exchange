@@ -304,6 +304,16 @@ async function main() {
     page.on("console", (message) => {
       if (message.type() !== "error") return;
       if (outageStarted) return;
+      // D-29: AuthProvider bootstraps auth state with GET /api/me on every
+      // page load; for an anonymous visitor that response is a normal 401,
+      // which Chrome still logs as a "Failed to load resource" console
+      // error regardless of how the app's own fetch handler treats it (this
+      // is unavoidable from application code — the browser's network layer
+      // emits it before any JS runs). Filtered by the failing resource's own
+      // URL, not by message text, so an unrelated 401 elsewhere still fails
+      // the run.
+      const location = message.location();
+      if (location?.url && new URL(location.url).pathname === "/api/me") return;
       consoleErrors.push(message.text());
     });
     page.on("request", (request) => {
@@ -405,6 +415,101 @@ async function main() {
         `browser: page/console errors detected after outage/recovery — pageErrors: ${JSON.stringify(
           pageErrors,
         )}, consoleErrors (pre-outage only): ${JSON.stringify(consoleErrors)}`,
+      );
+    }
+
+    // (k) real-browser sign-up: signup -> funded wallet -> reload -> still
+    // signed in (D-34, AUTH-01/AUTH-02/AUTH-05). Set the outage flag back to
+    // false first so console-error capture is active again for these steps —
+    // the pre-outage error assertion above stays where it is.
+    outageStarted = false;
+
+    const smokeEmail = `smoke-${Date.now()}@example.com`;
+    const smokePassword = "smoke-test-password1";
+
+    await page.goto(`http://localhost:${webPort}/signup`);
+    await page.locator('input[name="email"]').fill(smokeEmail);
+    await page.locator('input[name="password"]').fill(smokePassword);
+    await page.getByRole("button", { name: "Sign up" }).click();
+
+    // The nav showing the signed-up email is the signal the cookie was
+    // accepted, the credentialed cross-origin call succeeded, and the auth
+    // state bootstrapped. Reuses waitForBadge's poll-every-200ms pattern
+    // against the nav-account test id.
+    async function waitForNavAccount(predicate, timeoutMs, description) {
+      const deadline = Date.now() + timeoutMs;
+      let lastText = "";
+      while (Date.now() < deadline) {
+        lastText =
+          (await page
+            .getByTestId("nav-account")
+            .textContent()
+            .catch(() => "")) ?? "";
+        if (predicate(lastText)) return lastText;
+        await new Promise((r) => setTimeout(r, 200));
+      }
+      fail(
+        `browser: nav-account did not show ${description} within ${timeoutMs}ms (last text: "${lastText}")`,
+      );
+      return lastText; // unreachable — fail() always throws
+    }
+
+    await waitForNavAccount((text) => text.includes(smokeEmail), 15_000, `"${smokeEmail}"`);
+
+    const walletBodyText = (await page.locator("body").textContent()) ?? "";
+    if (!walletBodyText.includes("10000.00000000") || !walletBodyText.includes("USDT")) {
+      fail(
+        `browser: wallet did not show the 10000.00000000 USDT grant (body: "${walletBodyText}")`,
+      );
+    }
+
+    // (k1) reload: the AUTH-02 refresh-persistence proof — the only check in
+    // the project that exercises the cookie across a real browser navigation.
+    await page.reload();
+    await waitForNavAccount(
+      (text) => text.includes(smokeEmail),
+      15_000,
+      `"${smokeEmail}" after reload`,
+    );
+    const afterReloadBodyText = (await page.locator("body").textContent()) ?? "";
+    if (!afterReloadBodyText.includes("10000.00000000") || !afterReloadBodyText.includes("USDT")) {
+      fail(
+        `browser: wallet did not still show the 10000.00000000 USDT grant after reload (body: "${afterReloadBodyText}")`,
+      );
+    }
+
+    // (k2) the httpOnly attribute means the session token must be invisible
+    // to JavaScript. This callback runs inside the browser page context, not
+    // this Node script, so `document` is a legitimate browser global here.
+    // eslint-disable-next-line no-undef
+    const documentCookie = await page.evaluate(() => document.cookie);
+    if (documentCookie.includes("session")) {
+      fail(`browser: document.cookie exposed a "session" entry: "${documentCookie}"`);
+    }
+
+    // (k3) AUTH-05's exactly-once guarantee, measured against the real
+    // stack (not a :memory: test database) — same read-only re-open pattern
+    // as the (g) upstream_checks assertion above.
+    const authDb = new Database(databasePath, { readonly: true });
+    const userRow = authDb.prepare("select count(*) as n from users").get();
+    const balanceRow = authDb
+      .prepare("select count(*) as n, amount from balances where amount = ?")
+      .get("10000.00000000");
+    authDb.close();
+    if (userRow.n !== 1) fail(`users table has ${userRow.n} rows, expected exactly 1`);
+    if (balanceRow.n !== 1) {
+      fail(
+        `balances table has ${balanceRow.n} rows with amount 10000.00000000, expected exactly 1`,
+      );
+    }
+
+    // (k4) re-run the page-error and console-error assertion after the auth
+    // steps, so a React error during signup fails the run.
+    if (pageErrors.length > 0 || consoleErrors.length > 0) {
+      fail(
+        `browser: page/console errors detected during the auth signup steps — pageErrors: ${JSON.stringify(
+          pageErrors,
+        )}, consoleErrors: ${JSON.stringify(consoleErrors)}`,
       );
     }
 

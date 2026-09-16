@@ -21,7 +21,11 @@ function AuthNav() {
 
   if (state.kind === "authenticated") {
     // D-30: signed-in email on every page; 02-03 adds the logout control here.
-    return <span className="nav-account">{state.email}</span>;
+    return (
+      <span className="nav-account" data-testid="nav-account">
+        {state.email}
+      </span>
+    );
   }
 
   return (
