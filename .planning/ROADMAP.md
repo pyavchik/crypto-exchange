@@ -13,7 +13,7 @@ Build a Binance-style paper-trading exchange as vertical slices — every featur
 
 - [x] **Phase 1: Foundation & Project Memory** - Monorepo, CI, health + structured logs, LLM Wiki, test strategy (completed 2026-09-16)
 - [x] **Phase 2: Accounts** - Sign up / login / logout, per-user isolation, 10k USDT grant (completed 2026-09-16)
-- [ ] **Phase 3: Live Markets** - CoinGecko proxy + cache + stale handling, markets table, trade page chart
+- [x] **Phase 3: Live Markets** - CoinGecko proxy + cache + stale handling, markets table, trade page chart (completed 2026-09-16)
 - [ ] **Phase 4: Wallet & Market Orders** - Balances, decimal-safe market buy/sell with fees and validation
 - [ ] **Phase 5: Limit Orders & History** - Limit orders with locked funds, fill-on-cross, cancel, order/trade history, P&L
 - [ ] **Phase 6: QA Hardening** - API collection, Playwright suite with mocks, exploratory sessions, bug reports, RCA
@@ -142,7 +142,7 @@ Plans:
 
 **Wave 4**
 
-- [ ] 03-05: QA execution and project memory
+- [x] 03-05: QA execution and project memory
 
 ### Phase 4: Wallet & Market Orders
 
@@ -242,7 +242,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 |-------|----------------|--------|-----------|
 | 1. Foundation & Project Memory | 11/11 | Complete    | 2026-09-16 |
 | 2. Accounts | 5/5 | Complete    | 2026-09-16 |
-| 3. Live Markets | 5/5 | In Progress|  |
+| 3. Live Markets | 5/5 | Complete    | 2026-09-16 |
 | 4. Wallet & Market Orders | 0/4 | Not started | - |
 | 5. Limit Orders & History | 0/4 | Not started | - |
 | 6. QA Hardening | 0/4 | Not started | - |
