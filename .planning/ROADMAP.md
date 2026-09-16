@@ -117,13 +117,32 @@ Plans:
   4. When CoinGecko returns 429 or times out, the UI shows cached prices with a "prices delayed" banner
   5. Market data test cases are written and executed
 
-**Plans**: 3 plans
+**Plans**: 5 plans
 
 Plans:
 
-- [ ] 03-01: BE — CoinGecko client, TTL cache, stale fallback, curated pair list, markets/chart endpoints
-- [ ] 03-02: FE — Markets table (search/sort/auto-refresh), trade page layout + chart, stale banner, attribution
-- [ ] 03-03: QA — Market data test cases (rate limit, stale, attribution, formatting) + execution report
+- [ ] 03-01-PLAN.md — Tracer: keyed TTL cache + dedupe, CoinGecko markets client, `GET /api/markets`, formatting module, markets table, real-browser key-exposure proof
+- [ ] 03-02-PLAN.md — BE: stale-serve fallback with request-id logging, deterministic TTL seam, chart series, `GET /api/markets/:id/chart` with curated-list validation
+- [ ] 03-03-PLAN.md — FE: shared receiver-safe poller, 30s visibility-aware refresh, client-side search/sort, prices-delayed banner
+- [ ] 03-04-PLAN.md — FE: `lightweight-charts` controller, trade page with 1D/7D/30D chart, and the real-browser proof of the chart, interactions and degraded path
+- [ ] 03-05-PLAN.md — QA: market-data test cases + executed run report, verified rate limits in TEST-PLAN, wiki decision record
+
+**Wave 1**
+
+- [ ] 03-01: Tracer — one vertical slice from the CoinGecko client to a rendered markets table, proven in Chrome
+
+**Wave 2** (parallel — no file overlap)
+
+- [ ] 03-02: BE expansion — stale serving and the chart endpoint
+- [ ] 03-03: FE expansion — polling, search, sort, stale banner
+
+**Wave 3**
+
+- [ ] 03-04: Trade page, chart, and the full real-browser proof
+
+**Wave 4**
+
+- [ ] 03-05: QA execution and project memory
 
 ### Phase 4: Wallet & Market Orders
 
