@@ -9,7 +9,9 @@
 // playwright-core (a library, no bundled browser download) to prove the
 // footer health badge actually renders correctly in a real browser — the
 // class of bug that pure-Node fetch checks and Vitest's fake DOM cannot
-// catch (see BUG-001). The browser step needs Google Chrome installed.
+// catch (see BUG-001). The browser step needs Google Chrome installed, and
+// adds about 60s to the total run because it waits in real time for the
+// health poller's actual 60s poll interval to fire while the tab is visible.
 
 import { spawn } from "node:child_process";
 import { createServer as createHttpServer } from "node:http";
@@ -290,13 +292,19 @@ async function main() {
     const pageErrors = [];
     const consoleErrors = [];
     const healthRequestTimes = [];
+    // Flipped true once the (j) simulated outage begins. Chrome logs the
+    // route.abort()'d /health request as a console error, which is expected
+    // from that point on — page errors are still recorded for the whole run.
+    let outageStarted = false;
 
     const page = await browser.newPage();
     page.on("pageerror", (error) => {
       pageErrors.push(error.message);
     });
     page.on("console", (message) => {
-      if (message.type() === "error") consoleErrors.push(message.text());
+      if (message.type() !== "error") return;
+      if (outageStarted) return;
+      consoleErrors.push(message.text());
     });
     page.on("request", (request) => {
       if (new URL(request.url()).pathname === "/health") {
@@ -325,6 +333,78 @@ async function main() {
         `browser: page/console errors detected — pageErrors: ${JSON.stringify(
           pageErrors,
         )}, consoleErrors: ${JSON.stringify(consoleErrors)}`,
+      );
+    }
+
+    // (i) periodic poll while visible (D-02, G-01-2). This waits real time on
+    // purpose: a faked page clock replaces the page's native timer functions
+    // with plain JavaScript functions that ignore the receiver, which would
+    // hide exactly this class of bug (the BUG-001 "Illegal invocation").
+    const countBeforePoll = healthRequestTimes.length;
+    await page.waitForRequest((request) => new URL(request.url()).pathname === "/health", {
+      timeout: 75_000,
+    });
+    const pollElapsed = Date.now() - badgeOkAt;
+    if (pollElapsed < 50_000 || pollElapsed > 70_000) {
+      fail(`browser: periodic /health poll fired after ${pollElapsed}ms, expected 50000-70000ms`);
+    }
+    if (healthRequestTimes.length !== countBeforePoll + 1) {
+      fail(
+        `browser: expected exactly 1 /health request during the poll window, saw ${
+          healthRequestTimes.length - countBeforePoll
+        }`,
+      );
+    }
+    await waitForBadge(
+      page,
+      (text) => text.includes("API ok"),
+      10_000,
+      '"API ok" after the periodic poll',
+    );
+
+    // (j) outage and recovery through Re-check (G-01-3)
+    const apiHealthUrl = `http://localhost:${apiPort}/health`;
+    const countBeforeOutage = healthRequestTimes.length;
+    outageStarted = true;
+    await page.route(apiHealthUrl, (route) => route.abort("connectionrefused"));
+    await page.getByRole("button", { name: "Re-check API health" }).click();
+    await waitForBadge(
+      page,
+      (text) => text.includes("API unreachable"),
+      10_000,
+      '"API unreachable" during the simulated outage',
+    );
+    await new Promise((r) => setTimeout(r, 1_000));
+    if (healthRequestTimes.length !== countBeforeOutage + 1) {
+      fail(
+        `browser: expected exactly 1 /health request for the outage Re-check, saw ${
+          healthRequestTimes.length - countBeforeOutage
+        }`,
+      );
+    }
+
+    await page.unroute(apiHealthUrl);
+    await page.getByRole("button", { name: "Re-check API health" }).click();
+    await waitForBadge(
+      page,
+      (text) => text.includes("API ok") && text.includes("CoinGecko: ok"),
+      10_000,
+      '"API ok" and "CoinGecko: ok" after recovery',
+    );
+    await new Promise((r) => setTimeout(r, 1_000));
+    if (healthRequestTimes.length !== countBeforeOutage + 2) {
+      fail(
+        `browser: expected exactly 1 /health request for the recovery Re-check, saw ${
+          healthRequestTimes.length - (countBeforeOutage + 1)
+        }`,
+      );
+    }
+
+    if (pageErrors.length > 0 || consoleErrors.length > 0) {
+      fail(
+        `browser: page/console errors detected after outage/recovery — pageErrors: ${JSON.stringify(
+          pageErrors,
+        )}, consoleErrors (pre-outage only): ${JSON.stringify(consoleErrors)}`,
       );
     }
 
