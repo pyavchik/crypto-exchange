@@ -8,11 +8,9 @@ import { AuthProvider, type AuthState } from "./lib/auth.js";
 // ProtectedRoute-guarded page (D-28), so rendering it without an
 // authenticated provider no longer shows the ComingSoon page — see the
 // dedicated guarded-route tests below, which cover /orders together with
-// /wallet.
-const COMING_SOON_ROUTE_CASES = [
-  { path: "/markets", title: "Markets" },
-  { path: "/trade", title: "Trade" },
-] as const;
+// /wallet. /markets moved out in 03-01: it now renders the real Markets page
+// (D-01 replaces the placeholder) — see the dedicated test below.
+const COMING_SOON_ROUTE_CASES = [{ path: "/trade", title: "Trade" }] as const;
 
 describe("AppRoutes", () => {
   it.each(COMING_SOON_ROUTE_CASES)(
@@ -34,6 +32,19 @@ describe("AppRoutes", () => {
       expect(markup).toContain('rel="noopener noreferrer"');
     },
   );
+
+  it("renders the Markets page (not the ComingSoon placeholder) at /markets, even for a logged-out visitor", () => {
+    const markup = renderToStaticMarkup(
+      <MemoryRouter initialEntries={["/markets"]}>
+        <AppRoutes />
+      </MemoryRouter>,
+    );
+
+    expect(markup).toContain("<h1>Markets</h1>");
+    expect(markup).not.toContain("Coming soon");
+    expect(markup).toContain('href="/markets"');
+    expect(markup).toContain("Powered by CoinGecko");
+  });
 
   it("renders the guard's loading shell (not the page) at /wallet and /orders with no AuthProvider — default context state is loading", () => {
     for (const path of ["/wallet", "/orders"]) {

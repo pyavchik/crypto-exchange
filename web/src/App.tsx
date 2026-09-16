@@ -12,6 +12,7 @@ import { ProtectedRoute } from "./components/ProtectedRoute.js";
 import { AuthProvider, useAuth } from "./lib/auth.js";
 import { ComingSoon } from "./pages/ComingSoon.js";
 import { Login } from "./pages/Login.js";
+import { Markets } from "./pages/Markets.js";
 import { Signup } from "./pages/Signup.js";
 import { Wallet } from "./pages/Wallet.js";
 
@@ -112,9 +113,7 @@ export const appRoutes: RouteObject[] = [
       { index: true, element: <Navigate to="/markets" replace /> },
       {
         path: "markets",
-        element: (
-          <ComingSoon title="Markets" description="Coming soon: live markets table (Phase 3)" />
-        ),
+        element: <Markets />,
       },
       {
         path: "trade",

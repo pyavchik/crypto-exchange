@@ -264,6 +264,50 @@ export async function fetchWallet(
   return parseJsonBody<WalletResponse>(response, headerRequestId);
 }
 
+// Mirrors api/src/lib/marketData.ts's MarketPair/MarketsPayload — kept in
+// sync manually until a shared types package exists (Out of Scope for
+// Phase 1, see SKELETON.md).
+export interface MarketPair {
+  id: string;
+  symbol: string;
+  name: string;
+  pair: string;
+  price: number;
+  change24hPct: number | null;
+  volume24h: number | null;
+  marketCap: number | null;
+}
+
+export interface MarketsResponse {
+  pairs: MarketPair[];
+  fetchedAt: string;
+  stale: boolean;
+}
+
+// GET /api/markets is public (D-44) — no credentials, following fetchHealth's
+// structure rather than fetchWallet's.
+export async function fetchMarkets(
+  options: { signal?: AbortSignal; fetchImpl?: typeof fetch } = {},
+): Promise<ApiResult<MarketsResponse>> {
+  const { signal, fetchImpl = fetch } = options;
+
+  let response: Response;
+  try {
+    response = await fetchImpl(`${API_BASE_URL}/api/markets`, { signal });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw error;
+    }
+    throw new ApiError(null, "NETWORK_ERROR", null);
+  }
+
+  const headerRequestId = response.headers.get("x-request-id");
+  if (!response.ok) {
+    throw await parseErrorResponse(response, headerRequestId);
+  }
+  return parseJsonBody<MarketsResponse>(response, headerRequestId);
+}
+
 interface ErrorResponseBody {
   error?: { code?: unknown; message?: unknown; requestId?: unknown; fields?: unknown };
 }
