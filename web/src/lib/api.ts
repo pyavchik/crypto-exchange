@@ -73,15 +73,10 @@ export async function fetchHealth(
   // D-09, REVIEW WR-01: a 2xx response with a malformed/truncated body must
   // still surface as an ApiError, not a raw SyntaxError — otherwise the
   // fetchHealth contract ("every failure rejects with ApiError or AbortError")
-  // is silently violated for this one path. Never copy the raw body into the
-  // error.
-  let data: HealthResponse;
-  try {
-    data = (await response.json()) as HealthResponse;
-  } catch {
-    throw new ApiError(response.status, "INVALID_RESPONSE_BODY", headerRequestId);
-  }
-  return { data, requestId: headerRequestId };
+  // is silently violated for this one path. Delegates to parseJsonBody so
+  // this call site shares the same AbortError-safe parse path as every
+  // other JSON 2xx body in this file, rather than duplicating it.
+  return parseJsonBody<HealthResponse>(response, headerRequestId);
 }
 
 export interface Balance {
@@ -96,7 +91,11 @@ export interface SessionResponse {
 
 // Shared parse path for every JSON 2xx body: a response that fails to parse
 // as JSON surfaces as ApiError INVALID_RESPONSE_BODY, matching fetchHealth's
-// contract above rather than throwing a raw SyntaxError.
+// contract above rather than throwing a raw SyntaxError. WR-01: response.json()
+// rejects with a genuine AbortError (a DOMException) when the request is
+// aborted mid-body-read — that must propagate as an abort, not get relabelled
+// INVALID_RESPONSE_BODY, mirroring how the network-fetch stage above already
+// distinguishes AbortError from a real network failure.
 async function parseJsonBody<T>(
   response: Response,
   headerRequestId: string | null,
@@ -104,7 +103,10 @@ async function parseJsonBody<T>(
   let data: T;
   try {
     data = (await response.json()) as T;
-  } catch {
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw error;
+    }
     throw new ApiError(response.status, "INVALID_RESPONSE_BODY", headerRequestId);
   }
   return { data, requestId: headerRequestId };

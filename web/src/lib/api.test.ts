@@ -8,6 +8,22 @@ const HEALTH_BODY: HealthResponse = {
   upstream: { coingecko: { status: "ok", checkedAt: "2026-09-15T00:00:00.000Z", latencyMs: 42 } },
 };
 
+// WR-01: simulates a response whose headers/status arrived fine but whose
+// body read is aborted mid-stream — response.json() rejects with a genuine
+// AbortError (a DOMException), not a SyntaxError. A minimal object stands in
+// for Response here (rather than a real ReadableStream) because it pins down
+// exactly the failure mode under test: json() rejecting with an AbortError,
+// independent of how any particular stream implementation surfaces one.
+function abortingJsonResponse(status: number, requestId: string): Response {
+  const abortError = new DOMException("aborted", "AbortError");
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    headers: new Headers({ "x-request-id": requestId }),
+    json: () => Promise.reject(abortError),
+  } as unknown as Response;
+}
+
 describe("fetchHealth", () => {
   it("returns data and the request id on a 200 response", async () => {
     const fetchImpl = (async () =>
@@ -87,6 +103,18 @@ describe("fetchHealth", () => {
     }) as typeof fetch;
 
     await expect(fetchHealth({ fetchImpl })).rejects.toBe(abortError);
+  });
+
+  // WR-01 regression: an AbortError raised while reading a 2xx body (headers
+  // already arrived, so this is the shared parseJsonBody stage, not the
+  // network-fetch stage above) must surface as an abort, not get relabelled
+  // ApiError INVALID_RESPONSE_BODY.
+  it("rethrows an AbortError raised mid-body-read instead of wrapping it as INVALID_RESPONSE_BODY", async () => {
+    const fetchImpl = (async () => abortingJsonResponse(200, "r-abort")) as typeof fetch;
+
+    const rejection = fetchHealth({ fetchImpl });
+    await expect(rejection).rejects.toBeInstanceOf(DOMException);
+    await expect(rejection).rejects.toMatchObject({ name: "AbortError" });
   });
 });
 
@@ -220,5 +248,16 @@ describe("fetchWallet", () => {
       status: 401,
       code: "UNAUTHENTICATED",
     } satisfies Partial<ApiError>);
+  });
+
+  // WR-01 regression: fetchWallet shares parseJsonBody with signup/fetchMe/
+  // login/logout — proving the fix here proves it for every call site, not
+  // just fetchHealth's own (already-covered) network-fetch-stage case.
+  it("rethrows an AbortError raised mid-body-read instead of wrapping it as INVALID_RESPONSE_BODY", async () => {
+    const fetchImpl = (async () => abortingJsonResponse(200, "r-abort-wallet")) as typeof fetch;
+
+    const rejection = fetchWallet({ fetchImpl });
+    await expect(rejection).rejects.toBeInstanceOf(DOMException);
+    await expect(rejection).rejects.toMatchObject({ name: "AbortError" });
   });
 });
