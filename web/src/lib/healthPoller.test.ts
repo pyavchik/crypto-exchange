@@ -65,6 +65,26 @@ describe("createHealthPoller", () => {
     poller.stop();
   });
 
+  it("does not fetch on start() while the tab starts hidden, but fetches once it becomes visible (WR-02)", async () => {
+    const fetchHealth = vi.fn<() => Promise<ApiResult<HealthResponse>>>().mockResolvedValue({
+      data: HEALTH_BODY,
+      requestId: "r-1",
+    });
+    const onUpdate = vi.fn();
+    const visibility = createFakeVisibility(false);
+    const poller = createHealthPoller({ fetchHealth, onUpdate, visibility });
+
+    poller.start();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fetchHealth).not.toHaveBeenCalled();
+
+    visibility.setVisible(true);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fetchHealth).toHaveBeenCalledTimes(1);
+
+    poller.stop();
+  });
+
   it("makes no further call while the tab stays hidden", async () => {
     const fetchHealth = vi.fn<() => Promise<ApiResult<HealthResponse>>>().mockResolvedValue({
       data: HEALTH_BODY,

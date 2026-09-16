@@ -72,6 +72,31 @@ describe("createPoller", () => {
     poller.stop();
   });
 
+  it("does not fetch on start() while the tab starts hidden, but fetches once it becomes visible (WR-02)", async () => {
+    const fetchImpl = vi.fn<() => Promise<ApiResult<TestPayload>>>().mockResolvedValue({
+      data: PAYLOAD,
+      requestId: "r-1",
+    });
+    const onUpdate = vi.fn();
+    const visibility = createFakeVisibility(false);
+    const poller = createPoller<TestPayload>({
+      fetchImpl,
+      onUpdate,
+      visibility,
+      intervalMs: INTERVAL_MS,
+    });
+
+    poller.start();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fetchImpl).not.toHaveBeenCalled();
+
+    visibility.setVisible(true);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+
+    poller.stop();
+  });
+
   it("makes no further call while the tab stays hidden, and cancels the pending timer", async () => {
     const fetchImpl = vi.fn<() => Promise<ApiResult<TestPayload>>>().mockResolvedValue({
       data: PAYLOAD,

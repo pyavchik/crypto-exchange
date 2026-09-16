@@ -104,6 +104,26 @@ describe("createMarketsPoller", () => {
     poller.stop();
   });
 
+  it("does not fetch on start() while the tab starts hidden, but fetches once it becomes visible (WR-02)", async () => {
+    const fetchMarkets = vi.fn<() => Promise<ApiResult<MarketsResponse>>>().mockResolvedValue({
+      data: MARKETS_BODY,
+      requestId: "r-1",
+    });
+    const onUpdate = vi.fn<(state: MarketsState) => void>();
+    const visibility = createFakeVisibility(false);
+    const poller = createMarketsPoller({ fetchMarkets, onUpdate, visibility });
+
+    poller.start();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fetchMarkets).not.toHaveBeenCalled();
+
+    visibility.setVisible(true);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(fetchMarkets).toHaveBeenCalledTimes(1);
+
+    poller.stop();
+  });
+
   it("performs no fetch and cancels any pending timer while the adapter reports hidden", async () => {
     const fetchMarkets = vi.fn<() => Promise<ApiResult<MarketsResponse>>>().mockResolvedValue({
       data: MARKETS_BODY,

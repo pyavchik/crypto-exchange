@@ -179,7 +179,14 @@ export function createPoller<T>(options: CreatePollerOptions<T>): Poller {
     start(): void {
       stopped = false;
       unsubscribe = visibility.subscribe(onVisibilityChange);
-      void performFetch();
+      // WR-02: honor D-40's "poll only while the tab is visible" on the
+      // very first fetch too, not just on every subsequent scheduling
+      // decision. A page opened or restored in a hidden tab must not hit
+      // the API immediately — onVisibilityChange (already gated) fires the
+      // first fetch once the tab actually becomes visible.
+      if (visibility.isVisible()) {
+        void performFetch();
+      }
     },
     stop(): void {
       stopped = true;
