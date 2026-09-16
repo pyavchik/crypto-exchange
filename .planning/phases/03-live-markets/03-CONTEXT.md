@@ -27,7 +27,8 @@ NOT in scope: placing orders, wallet mutations, fees, P&L (Phases 4-5); a real o
   - **The key must never reach the browser.** Every CoinGecko call is server-side; the FE only ever talks to our own API. Success criterion 3 is proven by inspecting real browser network traffic, not by reading code.
 
 ### Curated pair list (USER DECISION — answer 2a)
-- **D-36:** The tradable set is the **top 20 by market cap, fetched dynamically** from CoinGecko and cached, quoted against USDT (DATA-04). **Consequence the user accepted:** the list changes over time, so Phase 4-5 tests must not hardcode "the top 20 are X" — they pin whatever the cache currently holds, or stub the upstream. Record this explicitly for the later phases.
+- **D-36:** The tradable set is the **top 20 by market cap, fetched dynamically** from CoinGecko and cached, quoted against USDT (DATA-04).
+  - **Correction from 03-RESEARCH.md (verified live, 2026-09-16):** CoinGecko REJECTS `vs_currency=usdt` with `400 {"error":"invalid vs_currency"}`. "Quoted in USDT" is therefore implemented as **`vs_currency=usd` upstream plus a display-only USDT≈USD convention** — pairs render as `BTC/USDT` while the underlying reference price is USD. This is a real modelling decision, not a cosmetic one: it must be stated in the UI or docs so a reviewer is not misled into thinking a USDT-quoted feed exists, and Phase 4's order math inherits the same convention. **Consequence the user accepted:** the list changes over time, so Phase 4-5 tests must not hardcode "the top 20 are X" — they pin whatever the cache currently holds, or stub the upstream. Record this explicitly for the later phases.
   - Stablecoins that appear in the top 20 (USDT itself, USDC, DAI…) are still listed; a USDT/USDT pair is nonsensical and must be excluded from the tradable set.
 
 ### Chart (USER DECISION — answer 3a)
@@ -100,6 +101,7 @@ NOT in scope: placing orders, wallet mutations, fees, P&L (Phases 4-5); a real o
 1. Cache TTLs: 45s for markets, 2min/10min for chart series (D-38).
 2. FE poll interval of 30s while visible (D-40).
 3. Market endpoints public rather than session-gated (D-44).
-4. R-05 in TEST-PLAN.md still records the Demo plan's exact rate limits as **unverified** — this phase should confirm the real numbers from the CoinGecko dashboard or docs and update the risk row.
+4. ~~R-05 rate limits unverified~~ — **RESOLVED by 03-RESEARCH.md (2026-09-16):** Demo plan is **100 calls/min and 10,000 call credits/month**, cross-checked against two official CoinGecko pages; an older "30 calls/min" figure still circulating is stale. This phase must update R-05 in `qa/TEST-PLAN.md` with the real numbers and the citation, and drop the "unverified" marker.
+5. Research flagged that worst-case *continuous* polling against D-38's TTLs could exceed the 10k/month credit cap several times over, while realistic reviewer-only traffic sits far inside it. Decide explicitly: accept the risk (documented in the TEST-PLAN risk register) or add a cheap safety valve such as a daily call counter. Default: accept and document. **[ASSUMED]**
 
 </open_questions>
