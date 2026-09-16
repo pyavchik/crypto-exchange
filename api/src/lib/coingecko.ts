@@ -2,6 +2,7 @@ import { desc, eq } from "drizzle-orm";
 import type { FastifyBaseLogger } from "fastify";
 import type { AppDatabase } from "../db/client.js";
 import { upstreamChecks } from "../db/schema.js";
+import { createInFlightRegistry } from "./keyedCache.js";
 
 export type UpstreamStatus = "ok" | "degraded" | "down" | "not_configured";
 
@@ -53,8 +54,9 @@ export function createCoingeckoStatusService(deps: CoingeckoStatusDeps): Coingec
   // awaits that same promise instead of starting another upstream fetch
   // (T-01-17 — the 5-minute cache alone does not protect against a burst of
   // concurrent callers that all observe an empty/expired cache before the
-  // first insert lands).
-  let inFlight: Promise<UpstreamCheck> | null = null;
+  // first insert lands). D-39: delegates to the shared keyed registry so
+  // exactly one dedupe implementation exists in the repo.
+  const inFlightRegistry = createInFlightRegistry();
 
   async function performCheck(
     key: string,
@@ -143,14 +145,7 @@ export function createCoingeckoStatusService(deps: CoingeckoStatusDeps): Coingec
         }
       }
 
-      if (inFlight) {
-        return inFlight;
-      }
-
-      inFlight = performCheck(apiKey, ctx).finally(() => {
-        inFlight = null;
-      });
-      return inFlight;
+      return inFlightRegistry.run(SERVICE_NAME, () => performCheck(apiKey, ctx));
     },
   };
 }

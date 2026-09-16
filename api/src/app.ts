@@ -14,9 +14,11 @@ import type { AppDatabase } from "./db/client.js";
 import { createAccountService } from "./lib/accounts.js";
 import { createCoingeckoStatusService } from "./lib/coingecko.js";
 import { registerErrorHandlers } from "./lib/errors.js";
+import { createMarketDataService } from "./lib/marketData.js";
 import { createRequireSession, createSessionService } from "./lib/session.js";
 import authRoutes from "./routes/auth.js";
 import healthRoutes, { readApiVersion } from "./routes/health.js";
+import marketsRoutes from "./routes/markets.js";
 import walletRoutes from "./routes/wallet.js";
 
 // Phase 2 populates this from the authenticated session; until then it is
@@ -137,6 +139,15 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
   });
 
   await app.register(walletRoutes, { accounts, requireSession });
+
+  const marketData = createMarketDataService({
+    apiKey: deps.config.coingeckoApiKey,
+    baseUrl: deps.config.coingeckoBaseUrl,
+    fetchImpl: deps.fetchImpl,
+    now: deps.now,
+  });
+
+  await app.register(marketsRoutes, { marketData });
 
   return app;
 }
