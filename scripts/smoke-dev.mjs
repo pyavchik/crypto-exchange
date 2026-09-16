@@ -722,6 +722,11 @@ async function main() {
     await page.goto(`http://localhost:${webPort}/markets`);
     await waitForMarketsRowCount((count) => count === 20, 15_000, "20 (curated limit)");
 
+    const marketsTableCount = await page.getByTestId("markets-table").count();
+    if (marketsTableCount !== 1) {
+      fail(`browser: expected exactly one markets-table element, found ${marketsTableCount}`);
+    }
+
     const rowCoinIds = await page
       .getByTestId("markets-row")
       .evaluateAll((elements) => elements.map((element) => element.getAttribute("data-coin-id")));
