@@ -65,6 +65,7 @@ A reviewer can open the live demo, place a trade, and then open the QA docs and 
 | LLM Wiki (Karpathy) for project memory in `wiki/` | User preference; persistent compounding knowledge ([wiki](../wiki/pages/decisions/llm-wiki-memory.md)) | — Pending |
 | Deploy on free hosting + public repo | Reviewers can click through ([wiki](../wiki/pages/decisions/free-hosting-public-repo.md)) | — Pending |
 | Request-ID JSON logs, lazy 5-min-cached `/health`, Markdown QA docs, public repo from day one | Traceable evidence for RCA; protect Demo call budget; reviewer-readable ([wiki](../wiki/pages/decisions/foundation-skeleton-conventions.md)) | — Pending (Phase 1) |
+| Scrypt password hashing, opaque session cookies, cookie-only identity, atomic 10k USDT grant | No native-addon build step; server-side revocation; no id-bearing endpoint to attack yet ([wiki](../wiki/pages/decisions/session-auth-model.md)) | — Pending (Phase 2) |
 
 ## Evolution
 

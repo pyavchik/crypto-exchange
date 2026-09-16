@@ -27,12 +27,20 @@ describe("hashPassword / verifyPassword", () => {
   it("rejects a stored hash with a byte-length different from the derived key without throwing", async () => {
     const encoded = await hashPassword("password1");
     const parts = encoded.split("$");
-    // Widen the hash hex (append two hex chars) so its byte length no longer
-    // matches KEY_LEN. verifyPassword must derive its candidate key at the
-    // stored hash's own byte length (not a hardcoded KEY_LEN) and reject
-    // cleanly — timingSafeEqual throws on a byte-length mismatch, which this
-    // pins down as unreachable.
-    const corrupted = [...parts.slice(0, 5), `${parts[5]}ab`].join("$");
+    // Widen the hash hex so its byte length no longer matches KEY_LEN.
+    // verifyPassword must derive its candidate key at the stored hash's own
+    // byte length (not a hardcoded KEY_LEN) and reject cleanly —
+    // timingSafeEqual throws on a byte-length mismatch, which this pins down
+    // as unreachable. scrypt's final extraction step is PBKDF2-style (output
+    // built from independent hLen-byte blocks), so re-deriving at a LARGER
+    // keylen with the same password/salt/N/r/p reproduces the original bytes
+    // exactly and only appends new ones — appending a single fixed byte here
+    // left a real 1-in-256 chance that the freshly derived extra byte
+    // happened to match it, making this assertion flaky (observed failing
+    // non-deterministically). Four fixed bytes appended instead drops the
+    // coincidental-match probability to 1-in-2^32, cryptographically
+    // negligible for a test run.
+    const corrupted = [...parts.slice(0, 5), `${parts[5]}deadbeef`].join("$");
     await expect(verifyPassword("password1", corrupted)).resolves.toBe(false);
   });
 

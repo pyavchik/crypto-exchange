@@ -27,6 +27,7 @@ Conventions: [SCHEMA.md](SCHEMA.md) · Log: [log.md](log.md)
 - [QA artifacts are first-class deliverables](pages/decisions/qa-first-class.md) — every phase ships QA alongside FE+BE
 - [LLM Wiki (Karpathy) for project memory](pages/decisions/llm-wiki-memory.md) — durable knowledge lives in wiki/
 - [Free hosting + public repository](pages/decisions/free-hosting-public-repo.md) — public repo from day one, hosting choice open
+- [Session authentication model](pages/decisions/session-auth-model.md) — scrypt passwords, opaque session cookies, cookie-only identity, atomic balance grant
 
 ## Findings
 - [Health badge always shows "API unreachable"](pages/findings/health-poller-illegal-invocation.md) — unbound `timers.setTimeout` throws Illegal invocation in browsers; Node tests miss it
