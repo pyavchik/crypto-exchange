@@ -3,17 +3,17 @@ gsd_state_version: "1.0"
 current_phase: 3
 current_phase_name: Live Markets
 current_plan: 5
-status: executing
-stopped_at: Completed 03-04-PLAN.md
-last_updated: "2026-09-16T11:34:08.747Z"
+status: verifying
+stopped_at: Completed 03-05-PLAN.md
+last_updated: "2026-09-16T12:02:18.931Z"
 last_activity: 2026-09-16
 last_activity_desc: Phase 02 complete, transitioned to Phase 3
-state_head: a89bead29222ae48e305aa74e2a9eede71a75d73
+state_head: 8853a7f0b29686a5d6b84680b256dd9956d2b56a
 progress:
   total_phases: 7
   completed_phases: 2
   total_plans: 21
-  completed_plans: 20
+  completed_plans: 21
   percent: 29
 ---
 
@@ -31,7 +31,7 @@ See: .planning/PROJECT.md (updated 2026-09-15)
 Phase: 3 — Live Markets
 Current Plan: 5
 Total Plans in Phase: 5
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-09-16 — Phase 02 complete, transitioned to Phase 3
 
 Progress: [███░░░░░░░] 29%
@@ -71,6 +71,7 @@ Progress: [███░░░░░░░] 29%
 | Phase 03 P02 | ~50min | 3 tasks | 9 files |
 | Phase 03 P03 | 13min | 3 tasks | 12 files |
 | Phase 03-live-markets P04 | 50min | 3 tasks | 15 files |
+| Phase 03 P05 | 44min | 3 tasks | 11 files |
 
 ## Accumulated Context
 
@@ -116,6 +117,8 @@ Recent decisions affecting current work:
 - [Phase 3]: [Phase 3] PriceChart mounts only once the chart fetch first resolves (never during initial loading), so its chart-ready sentinel always reflects real drawn data
 - [Phase 3]: [Phase 3] Trade's chartState never resets to loading after its first success, keeping PriceChart mounted continuously across 1D/7D/30D window switches (D-37)
 - [Phase 3]: [Phase 3] Smoke script's canvas-leak check compares against a post-first-draw baseline count, not a hardcoded 1 - lightweight-charts composes several stacked canvases per chart instance
+- [Phase 3]: R-05's monthly-cap exposure accepted and documented explicitly (not throttled this phase), with a stated reversal condition
+- [Phase 3]: TC-MKT-020 recorded Blocked after diagnosing a headless-Chrome visibilitychange limitation via two CDP probes, never fabricated as Pass
 
 ### Pending Todos
 
@@ -134,6 +137,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-09-16T11:34:08.670Z
-Stopped at: Completed 03-04-PLAN.md
+Last session: 2026-09-16T12:02:18.860Z
+Stopped at: Completed 03-05-PLAN.md
 Resume file: None

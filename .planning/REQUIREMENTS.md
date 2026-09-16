@@ -73,7 +73,7 @@ Tracks: **FE** = frontend (React+TS), **BE** = backend (Node+TS, SQLite), **QA**
 
 - [x] **QA-01**: Test strategy / test plan document (scope, risks, environments, entry/exit criteria, severity & priority definitions)
 - [x] **QA-02**: Manual test cases for Auth (positive, negative, security/isolation) with traceability to AUTH-*
-- [ ] **QA-03**: Manual test cases for Markets & Market Data incl. stale data, rate limit and attribution checks
+- [x] **QA-03**: Manual test cases for Markets & Market Data incl. stale data, rate limit and attribution checks
 - [ ] **QA-04**: Manual test cases for Wallet & market orders incl. precision/rounding, fees, min notional, insufficient balance
 - [ ] **QA-05**: Manual test cases for limit orders & history incl. crossing logic, cancel, locked funds, P&L correctness
 - [ ] **QA-06**: Exploratory testing session notes (charter-based) and a UX/usability review of the trading flow
@@ -149,7 +149,7 @@ Deferred. Tracked but not in current roadmap.
 | MKT-03 | Phase 3 | Complete |
 | MKT-04 | Phase 3 | Complete |
 | MKT-05 | Phase 3 | Complete |
-| QA-03 | Phase 3 | Pending |
+| QA-03 | Phase 3 | Complete |
 | WAL-01 | Phase 4 | Pending |
 | WAL-02 | Phase 4 | Pending |
 | WAL-03 | Phase 4 | Pending |

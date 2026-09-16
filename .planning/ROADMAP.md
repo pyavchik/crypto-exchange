@@ -117,7 +117,7 @@ Plans:
   4. When CoinGecko returns 429 or times out, the UI shows cached prices with a "prices delayed" banner
   5. Market data test cases are written and executed
 
-**Plans**: 4/5 plans executed
+**Plans**: 5/5 plans executed
 
 Plans:
 
@@ -125,7 +125,7 @@ Plans:
 - [x] 03-02-PLAN.md — BE: stale-serve fallback with request-id logging, deterministic TTL seam, chart series, `GET /api/markets/:id/chart` with curated-list validation
 - [x] 03-03-PLAN.md — FE: shared receiver-safe poller, 30s visibility-aware refresh, client-side search/sort, prices-delayed banner
 - [x] 03-04-PLAN.md — FE: `lightweight-charts` controller, trade page with 1D/7D/30D chart, and the real-browser proof of the chart, interactions and degraded path
-- [ ] 03-05-PLAN.md — QA: market-data test cases + executed run report, verified rate limits in TEST-PLAN, wiki decision record
+- [x] 03-05-PLAN.md — QA: market-data test cases + executed run report, verified rate limits in TEST-PLAN, wiki decision record
 
 **Wave 1**
 
@@ -138,7 +138,7 @@ Plans:
 
 **Wave 3**
 
-- [ ] 03-04: Trade page, chart, and the full real-browser proof
+- [x] 03-04: Trade page, chart, and the full real-browser proof
 
 **Wave 4**
 
@@ -242,7 +242,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 |-------|----------------|--------|-----------|
 | 1. Foundation & Project Memory | 11/11 | Complete    | 2026-09-16 |
 | 2. Accounts | 5/5 | Complete    | 2026-09-16 |
-| 3. Live Markets | 4/5 | In Progress|  |
+| 3. Live Markets | 5/5 | In Progress|  |
 | 4. Wallet & Market Orders | 0/4 | Not started | - |
 | 5. Limit Orders & History | 0/4 | Not started | - |
 | 6. QA Hardening | 0/4 | Not started | - |
