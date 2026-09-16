@@ -1,6 +1,6 @@
 ---
 phase: 02-accounts
-verified: 2026-09-16T12:05:00Z
+verified: 2026-09-16T12:40:00Z
 status: passed
 score: 4/4 must-haves verified
 covered_files: [".planning/REQUIREMENTS.md", ".planning/phases/02-accounts/02-01-PLAN.md", ".planning/phases/02-accounts/02-01-SUMMARY.md", ".planning/phases/02-accounts/02-02-PLAN.md", ".planning/phases/02-accounts/02-02-SUMMARY.md", ".planning/phases/02-accounts/02-03-PLAN.md", ".planning/phases/02-accounts/02-03-SUMMARY.md", ".planning/phases/02-accounts/02-04-PLAN.md", ".planning/phases/02-accounts/02-04-SUMMARY.md", ".planning/phases/02-accounts/02-05-PLAN.md", ".planning/phases/02-accounts/02-05-SUMMARY.md", ".planning/phases/02-accounts/02-CONTEXT.md", ".planning/phases/02-accounts/02-UAT.md", "api/src/db/schema.ts", "api/src/lib/accounts.ts", "api/src/lib/errors.ts", "api/src/lib/password.ts", "api/src/lib/session.ts", "api/src/routes/auth.ts", "api/src/routes/wallet.ts", "qa/TEST-PLAN.md", "qa/runs/RUN-2026-09-16-auth.md", "qa/test-cases/auth.md", "scripts/smoke-dev.mjs", "web/src/App.tsx", "web/src/components/ProtectedRoute.tsx", "web/src/lib/api.ts", "web/src/lib/auth.tsx", "web/src/pages/Login.tsx", "web/src/pages/Signup.tsx", "wiki/pages/decisions/session-auth-model.md"]
@@ -111,3 +111,16 @@ The one open item — the local branch not yet pushed to `origin/main`, so GitHu
 
 _Verified: 2026-09-16T12:05:00Z_
 _Verifier: Claude (gsd-verifier)_
+
+## Re-validation after post-verification fixes (2026-09-16T12:40Z, orchestrator)
+
+Commits landing after the original verification (`7e2d3da`, `a141a75`, `e6500bc`, `493ba19`, `ea1ac0f`) were the 02-REVIEW.md remediation, not new feature work: CR-01 (`verifyPassword` failed OPEN on a malformed stored hash), WR-01 (`AbortError` relabelled as `INVALID_RESPONSE_BODY` in the shared `parseJsonBody` helper), WR-02 (smoke script leaking a temp dir holding a real password hash), plus the RCA write-up. IN-01 remains open by decision.
+
+All four success criteria were re-checked against the post-fix tree; none of the findings above changed the phase's behavioral contract, and no criterion's evidence depended on the buggy paths:
+
+- `npm test` exit 0 — 93 api + 72 web (up from 87 + 70; the delta is the new CR-01 and WR-01 regression tests)
+- `npm run typecheck`, `npm run lint`, `npm run format:check` exit 0
+- `npm run smoke` prints `SMOKE OK` (real Chrome 152, full signup -> wallet -> reload -> logout -> guarded route -> re-login journey), and the temp-dir count was unchanged across the run (32 before, 32 after), confirming the WR-02 leak fix
+- CR-01 independently re-tested by the orchestrator against the fixed module: the reviewer's exact repro plus empty / truncated / odd-length-hex hash and non-hex salt all return `false`, while a correct password still returns `true` and a wrong one `false`
+
+Status therefore remains `passed`, 4/4.
