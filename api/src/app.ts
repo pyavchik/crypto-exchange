@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import cookie from "@fastify/cookie";
 import cors from "@fastify/cors";
 import Fastify, {
   LogController,
@@ -10,8 +11,11 @@ import Fastify, {
 import type pino from "pino";
 import type { AppConfig } from "./config.js";
 import type { AppDatabase } from "./db/client.js";
+import { createAccountService } from "./lib/accounts.js";
 import { createCoingeckoStatusService } from "./lib/coingecko.js";
 import { registerErrorHandlers } from "./lib/errors.js";
+import { createRequireSession, createSessionService } from "./lib/session.js";
+import authRoutes from "./routes/auth.js";
 import healthRoutes, { readApiVersion } from "./routes/health.js";
 
 // Phase 2 populates this from the authenticated session; until then it is
@@ -97,8 +101,12 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
 
   registerErrorHandlers(app);
 
+  // Must load before any route reads request.cookies.
+  await app.register(cookie);
+
   await app.register(cors, {
     origin: deps.config.corsOrigins,
+    credentials: true,
     exposedHeaders: ["X-Request-Id"],
   });
 
@@ -114,6 +122,16 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     version: readApiVersion(),
     commit: deps.config.gitCommit,
     coingecko,
+  });
+
+  const accounts = createAccountService({ db: deps.db, now: deps.now });
+  const sessions = createSessionService({ db: deps.db, now: deps.now });
+
+  await app.register(authRoutes, {
+    accounts,
+    sessions,
+    requireSession: createRequireSession(sessions),
+    cookieSecure: deps.config.cookieSecure,
   });
 
   return app;

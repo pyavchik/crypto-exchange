@@ -23,6 +23,10 @@ export function createDb(databasePath: string): { db: AppDatabase; close: () => 
   if (databasePath !== ":memory:") {
     sqlite.pragma("journal_mode = WAL");
   }
+  // SQLite disables foreign-key enforcement per connection by default, so the
+  // cascade rules on sessions.user_id/balances.user_id are inert without
+  // this. Applies to :memory: too, so tests exercise the same behavior.
+  sqlite.pragma("foreign_keys = ON");
 
   const db = drizzle(sqlite, { schema });
 

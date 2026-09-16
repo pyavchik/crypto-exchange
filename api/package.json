@@ -12,19 +12,20 @@
     "db:migrate": "drizzle-kit migrate"
   },
   "dependencies": {
-    "fastify": "^5.12.4",
+    "@fastify/cookie": "^11.1.2",
     "@fastify/cors": "^11.3.0",
-    "pino": "^10.3.1",
-    "pino-roll": "^4.0.0",
     "better-sqlite3": "^13.0.3",
-    "drizzle-orm": "^0.45.2"
+    "drizzle-orm": "^0.45.2",
+    "fastify": "^5.12.4",
+    "pino": "^10.3.1",
+    "pino-roll": "^4.0.0"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^24",
     "drizzle-kit": "^0.31.10",
     "tsx": "^4.23.13",
-    "vitest": "^5.0.1",
     "typescript": "~6.0.3",
-    "@types/node": "^24",
-    "@types/better-sqlite3": "^9.6.0"
+    "vitest": "^5.0.1"
   }
 }

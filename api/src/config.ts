@@ -13,6 +13,7 @@ export interface AppConfig {
   logFile: string | null;
   logLevel: string;
   gitCommit: string;
+  cookieSecure: boolean;
 }
 
 // api package root, resolved from this file's location (not process.cwd())
@@ -73,6 +74,10 @@ export function loadConfig(env: Record<string, string | undefined>): AppConfig {
   const logLevel = env.LOG_LEVEL ?? "info";
   const gitCommit = env.GIT_COMMIT ?? "dev";
 
+  // D-17: the cookie's Secure attribute is scoped to production only, so
+  // local http development keeps working.
+  const cookieSecure = env.NODE_ENV === "production";
+
   return {
     port,
     host,
@@ -83,5 +88,6 @@ export function loadConfig(env: Record<string, string | undefined>): AppConfig {
     logFile,
     logLevel,
     gitCommit,
+    cookieSecure,
   };
 }
