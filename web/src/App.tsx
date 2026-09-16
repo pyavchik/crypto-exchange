@@ -3,12 +3,15 @@ import {
   NavLink,
   Navigate,
   Outlet,
+  useNavigate,
   useRoutes,
   type RouteObject,
 } from "react-router";
 import { HealthBadge } from "./components/HealthBadge.js";
+import { ProtectedRoute } from "./components/ProtectedRoute.js";
 import { AuthProvider, useAuth } from "./lib/auth.js";
 import { ComingSoon } from "./pages/ComingSoon.js";
+import { Login } from "./pages/Login.js";
 import { Signup } from "./pages/Signup.js";
 import { Wallet } from "./pages/Wallet.js";
 
@@ -17,14 +20,38 @@ function navLinkClassName({ isActive }: { isActive: boolean }): string {
 }
 
 function AuthNav() {
-  const { state } = useAuth();
+  const { state, logout } = useAuth();
+  const navigate = useNavigate();
+
+  // D-30: render neither set of controls while the bootstrap request is in
+  // flight, so the nav does not flicker between the anonymous and
+  // authenticated states.
+  if (state.kind === "loading") {
+    return null;
+  }
 
   if (state.kind === "authenticated") {
-    // D-30: signed-in email on every page; 02-03 adds the logout control here.
+    const handleLogout = (): void => {
+      // logout() always resolves to the anonymous state, even if the
+      // server-side revocation request itself fails (T-02-20) — the local
+      // state and the navigation both happen unconditionally.
+      void logout().then(() => {
+        void navigate("/login");
+      });
+    };
+
+    // D-30: the signed-in email and a Log out control, on every page — this
+    // lives in AppLayout alongside the other NavLinks, which is what makes
+    // "from any page" true by construction (every route renders in this shell).
     return (
-      <span className="nav-account" data-testid="nav-account">
-        {state.email}
-      </span>
+      <>
+        <span className="nav-account" data-testid="nav-account">
+          {state.email}
+        </span>
+        <button type="button" className="nav-logout" onClick={handleLogout}>
+          Log out
+        </button>
+      </>
     );
   }
 
@@ -98,12 +125,25 @@ export const appRoutes: RouteObject[] = [
           />
         ),
       },
-      { path: "wallet", element: <Wallet /> },
+      {
+        path: "wallet",
+        element: (
+          <ProtectedRoute>
+            <Wallet />
+          </ProtectedRoute>
+        ),
+      },
       { path: "signup", element: <Signup /> },
+      { path: "login", element: <Login /> },
       {
         path: "orders",
         element: (
-          <ComingSoon title="Orders" description="Coming soon: open orders and history (Phase 5)" />
+          <ProtectedRoute>
+            <ComingSoon
+              title="Orders"
+              description="Coming soon: open orders and history (Phase 5)"
+            />
+          </ProtectedRoute>
         ),
       },
       {
