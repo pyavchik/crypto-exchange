@@ -2,18 +2,18 @@
 gsd_state_version: "1.0"
 current_phase: 2
 current_phase_name: Accounts
-current_plan: 3
+current_plan: 4
 status: executing
-stopped_at: Completed 02-02-PLAN.md (login/logout/GET /api/wallet, per-field validation via AppError, isolation/exactly-once/expiry proofs)
-last_updated: "2026-09-16T07:16:51.881Z"
+stopped_at: Completed 02-03-PLAN.md (login page, route guards, Log out control, inline field errors, no-DOM-tooling decision)
+last_updated: "2026-09-16T07:33:11.415Z"
 last_activity: 2026-09-16
 last_activity_desc: Phase 01 complete, transitioned to Phase 2
-state_head: 5b9ac8271ed7238523fc1f7b52193d4a24271386
+state_head: dc1dd400a44cb24be044608f65966ce3bd2323fc
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 16
-  completed_plans: 13
+  completed_plans: 14
   percent: 14
 ---
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-09-15)
 ## Current Position
 
 Phase: 2 — Accounts
-Current Plan: 3
+Current Plan: 4
 Total Plans in Phase: 5
 Status: Ready to execute
 Last activity: 2026-09-16 — Plan 02-01 (sign-up tracer slice) complete
@@ -63,6 +63,7 @@ Progress: [█░░░░░░░░░] 14%
 | Phase 01 P11 | ~20min | 2 tasks | 6 files |
 | Phase 02 P01 | 45min | 3 tasks | 24 files |
 | Phase 02 P02 | ~11min | 3 tasks | 9 files |
+| Phase 02 P03 | ~15min | 3 tasks | 13 files |
 
 ## Accumulated Context
 
@@ -90,6 +91,8 @@ Recent decisions affecting current work:
 - [Phase 2]: [Phase 02 P01]: Filtered the smoke script's expected GET /api/me 401 console message (D-29's every-page auth bootstrap) by the failing request's own URL, not by message text, so an unrelated 401 elsewhere still fails npm run smoke
 - [Phase 02]: [Phase 02 P02]: Applied validateCredentials (including the 8-char minimum) to login as well as signup, not just the empty-email case named in the behavior block — rejecting a too-short password before account lookup keeps D-26's no-enumeration property and matches the plan's own 'used by both signup and login' instruction
 - [Phase 02]: [Phase 02 P02]: Password too-long rejection message is 'Password must be at most 200 characters' — Claude's Discretion, the interface contract's fixed strings only specify the minimum-length message
+- [Phase 2]: [Phase 02 P03]: performLogin/performLogout extracted as pure async functions so login/logout state transitions are unit-testable without DOM tooling — extends nextAuthState's pure-reducer pattern to the write side
+- [Phase 2]: [Phase 02 P03]: Added noValidate to both forms (not explicitly named in the plan) so the app's own per-field error messages render instead of the browser's native HTML5 validation UI intercepting submission first
 
 ### Pending Todos
 
@@ -108,6 +111,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-09-16T07:16:51.824Z
-Stopped at: Completed 02-02-PLAN.md (login/logout/GET /api/wallet, per-field validation via AppError, isolation/exactly-once/expiry proofs)
+Last session: 2026-09-16T07:33:11.353Z
+Stopped at: Completed 02-03-PLAN.md (login page, route guards, Log out control, inline field errors, no-DOM-tooling decision)
 Resume file: None
