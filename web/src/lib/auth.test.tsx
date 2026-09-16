@@ -10,7 +10,6 @@ import {
   performLogout,
   type AuthClient,
 } from "./auth.js";
-import { SignupView } from "../pages/Signup.js";
 import { WalletView } from "../pages/Wallet.js";
 
 describe("nextAuthState", () => {
@@ -102,42 +101,9 @@ describe("performLogout", () => {
   });
 });
 
-describe("SignupView", () => {
-  it("renders an email field, a password field and a submit control in its default state", () => {
-    const markup = renderToStaticMarkup(
-      <SignupView
-        email=""
-        password=""
-        formError={null}
-        requestId={null}
-        submitting={false}
-        onEmailChange={() => {}}
-        onPasswordChange={() => {}}
-        onSubmit={() => {}}
-      />,
-    );
-    expect(markup).toContain('type="email"');
-    expect(markup).toContain('type="password"');
-    expect(markup).toContain('type="submit"');
-  });
-
-  it("renders a form-level error message when present", () => {
-    const markup = renderToStaticMarkup(
-      <SignupView
-        email="a@example.com"
-        password="password1"
-        formError="That email is already registered"
-        requestId="r-3"
-        submitting={false}
-        onEmailChange={() => {}}
-        onPasswordChange={() => {}}
-        onSubmit={() => {}}
-      />,
-    );
-    expect(markup).toContain("That email is already registered");
-    expect(markup).toContain("Request ID: r-3");
-  });
-});
+// SignupView's own visual-state tests moved to ../pages/Signup.test.tsx in
+// 02-03, alongside the new per-field-error states — matching Login.test.tsx's
+// location for the same view/wrapper pair.
 
 describe("WalletView", () => {
   it("renders the granted USDT balance and asset symbol", () => {

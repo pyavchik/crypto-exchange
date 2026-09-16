@@ -4,6 +4,7 @@ import {
   login as realLogin,
   logout as realLogout,
   signup as realSignup,
+  type ApiError,
   type ApiResult,
   type Balance,
   type SessionResponse,
@@ -73,6 +74,51 @@ export async function performLogout(client: Pick<AuthClient, "logout">): Promise
   } catch {
     // Ignored intentionally — see doc comment above.
   }
+}
+
+// D-15/D-27: mirrors api/src/routes/auth.ts's validateCredentials exactly —
+// a plausible email address, a password of at least eight characters — so
+// the two forms catch the obvious mistakes before a round trip. Strictly an
+// accelerator: the server's response is always authoritative, and a
+// response carrying field detail overwrites whatever this decided (see
+// formErrorsFromApiError below). The password is NEVER trimmed; surrounding
+// spaces are part of the secret (D-15).
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PASSWORD_MIN_LEN = 8;
+
+export function validateCredentialsClientSide(input: {
+  email: string;
+  password: string;
+}): Record<string, string> {
+  const fieldErrors: Record<string, string> = {};
+  if (!EMAIL_RE.test(input.email.trim())) {
+    fieldErrors.email = "Enter a valid email address";
+  }
+  if (input.password.length < PASSWORD_MIN_LEN) {
+    fieldErrors.password = "Password must be at least 8 characters";
+  }
+  return fieldErrors;
+}
+
+export interface FormErrors {
+  fieldErrors: Record<string, string>;
+  formError: string | null;
+}
+
+// D-27: maps a login/signup ApiError to the per-field and form-level error
+// slots the two forms render. A VALIDATION_ERROR carries `fields` directly.
+// EMAIL_TAKEN (409) carries no `fields` member, but is still a problem with
+// the email value specifically (D-26), so it is mapped onto the email field
+// here — rendered verbatim — rather than left in the form-level slot. Every
+// other failure (INVALID_CREDENTIALS, network errors, etc.) stays form-level.
+export function formErrorsFromApiError(error: ApiError): FormErrors {
+  if (error.fields) {
+    return { fieldErrors: error.fields, formError: null };
+  }
+  if (error.code === "EMAIL_TAKEN") {
+    return { fieldErrors: { email: error.message }, formError: null };
+  }
+  return { fieldErrors: {}, formError: error.message };
 }
 
 export interface AuthContextValue {

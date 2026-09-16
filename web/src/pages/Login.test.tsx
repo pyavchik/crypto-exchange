@@ -7,6 +7,7 @@ function renderView(overrides: Partial<LoginViewProps> = {}) {
   const props: LoginViewProps = {
     email: "",
     password: "",
+    fieldErrors: {},
     formError: null,
     requestId: null,
     submitting: false,
@@ -23,15 +24,37 @@ function renderView(overrides: Partial<LoginViewProps> = {}) {
 }
 
 describe("LoginView", () => {
-  it("renders an email field, a password field, a submit control and a link to /signup", () => {
+  it("renders a clean form: an email field, a password field, a submit control and a link to /signup, no error text", () => {
     const markup = renderView();
     expect(markup).toContain('type="email"');
     expect(markup).toContain('type="password"');
     expect(markup).toContain('type="submit"');
     expect(markup).toContain('href="/signup"');
+    expect(markup).not.toContain("field-error");
+    expect(markup).not.toContain("form-error");
   });
 
-  it("renders a form-level error message and, when present, the request id next to it", () => {
+  it("renders a message under the email field only when just the email is invalid", () => {
+    const markup = renderView({ fieldErrors: { email: "Enter a valid email address" } });
+    expect(markup).toContain("Enter a valid email address");
+    expect(markup).toContain('id="login-email-error"');
+    expect(markup).not.toContain('id="login-password-error"');
+  });
+
+  it("renders both messages at once when both fields are invalid", () => {
+    const markup = renderView({
+      fieldErrors: {
+        email: "Enter a valid email address",
+        password: "Password must be at least 8 characters",
+      },
+    });
+    expect(markup).toContain("Enter a valid email address");
+    expect(markup).toContain("Password must be at least 8 characters");
+    expect(markup).toContain('id="login-email-error"');
+    expect(markup).toContain('id="login-password-error"');
+  });
+
+  it("renders a form-level error message and the request id when present", () => {
     const markup = renderView({
       formError: "Invalid email or password",
       requestId: "r-7",

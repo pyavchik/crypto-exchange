@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { ApiError } from "../lib/api.js";
-import { useAuth } from "../lib/auth.js";
+import { formErrorsFromApiError, useAuth, validateCredentialsClientSide } from "../lib/auth.js";
 
 export interface SignupViewProps {
   email: string;
   password: string;
+  fieldErrors: Record<string, string>;
   formError: string | null;
   requestId: string | null;
   submitting: boolean;
@@ -19,6 +20,7 @@ export interface SignupViewProps {
 export function SignupView({
   email,
   password,
+  fieldErrors,
   formError,
   requestId,
   submitting,
@@ -29,34 +31,57 @@ export function SignupView({
   return (
     <section>
       <h1>Sign up</h1>
-      <form onSubmit={onSubmit}>
+      {/* noValidate: this form renders its own per-field messages (D-27) —
+          native browser validation UI would otherwise intercept submission
+          before onSubmit runs, hiding those messages. */}
+      <form onSubmit={onSubmit} noValidate className="form">
         {formError ? (
-          <p role="alert">
+          <p className="form-error" role="alert">
             {formError}
             {requestId ? <span> Request ID: {requestId}</span> : null}
           </p>
         ) : null}
-        <label>
-          Email
-          <input
-            type="email"
-            name="email"
-            value={email}
-            onChange={(event) => onEmailChange(event.target.value)}
-            required
-          />
-        </label>
-        <label>
-          Password
-          <input
-            type="password"
-            name="password"
-            value={password}
-            onChange={(event) => onPasswordChange(event.target.value)}
-            required
-            minLength={8}
-          />
-        </label>
+        <div className="field">
+          <label htmlFor="signup-email">
+            Email
+            <input
+              id="signup-email"
+              type="email"
+              name="email"
+              value={email}
+              onChange={(event) => onEmailChange(event.target.value)}
+              required
+              aria-invalid={Boolean(fieldErrors.email)}
+              aria-describedby={fieldErrors.email ? "signup-email-error" : undefined}
+            />
+          </label>
+          {fieldErrors.email ? (
+            <p className="field-error" id="signup-email-error" role="alert">
+              {fieldErrors.email}
+            </p>
+          ) : null}
+        </div>
+        <div className="field">
+          <label htmlFor="signup-password">
+            Password
+            <input
+              id="signup-password"
+              type="password"
+              name="password"
+              value={password}
+              onChange={(event) => onPasswordChange(event.target.value)}
+              required
+              minLength={8}
+              aria-invalid={Boolean(fieldErrors.password)}
+              aria-describedby={fieldErrors.password ? "signup-password-error" : undefined}
+            />
+          </label>
+          {fieldErrors.password ? (
+            <p className="field-error" id="signup-password-error" role="alert">
+              {fieldErrors.password}
+            </p>
+          ) : null}
+        </div>
         <button type="submit" disabled={submitting}>
           Sign up
         </button>
@@ -68,6 +93,7 @@ export function SignupView({
 export function Signup() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [requestId, setRequestId] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -76,9 +102,19 @@ export function Signup() {
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>): void {
     event.preventDefault();
-    setSubmitting(true);
     setFormError(null);
     setRequestId(null);
+
+    // Accelerator only: catches the obvious mistakes before a round trip.
+    // A server response carrying field detail always overwrites this below.
+    const clientFieldErrors = validateCredentialsClientSide({ email, password });
+    if (Object.keys(clientFieldErrors).length > 0) {
+      setFieldErrors(clientFieldErrors);
+      return;
+    }
+    setFieldErrors({});
+
+    setSubmitting(true);
     signup(email, password)
       .then(() => {
         void navigate("/wallet");
@@ -86,7 +122,10 @@ export function Signup() {
       .catch((error: unknown) => {
         setSubmitting(false);
         if (error instanceof ApiError) {
-          setFormError(error.message);
+          const { fieldErrors: serverFieldErrors, formError: serverFormError } =
+            formErrorsFromApiError(error);
+          setFieldErrors(serverFieldErrors);
+          setFormError(serverFormError);
           setRequestId(error.requestId);
           return;
         }
@@ -98,6 +137,7 @@ export function Signup() {
     <SignupView
       email={email}
       password={password}
+      fieldErrors={fieldErrors}
       formError={formError}
       requestId={requestId}
       submitting={submitting}
