@@ -23,10 +23,10 @@ Tracks: **FE** = frontend (React+TS), **BE** = backend (Node+TS, SQLite), **QA**
 
 ### Authentication (AUTH)
 
-- [ ] **AUTH-01** [FE+BE]: User can sign up with email and password (validation: email format, password ≥ 8 chars, duplicate email rejected)
-- [ ] **AUTH-02** [FE+BE]: User can log in and stay logged in across browser refresh (httpOnly session cookie)
-- [ ] **AUTH-03** [FE+BE]: User can log out from any page
-- [ ] **AUTH-04** [BE]: A user can never read or modify another user's wallet, orders or trades (authorization enforced server-side)
+- [x] **AUTH-01** [FE+BE]: User can sign up with email and password (validation: email format, password ≥ 8 chars, duplicate email rejected)
+- [x] **AUTH-02** [FE+BE]: User can log in and stay logged in across browser refresh (httpOnly session cookie)
+- [x] **AUTH-03** [FE+BE]: User can log out from any page
+- [x] **AUTH-04** [BE]: A user can never read or modify another user's wallet, orders or trades (authorization enforced server-side)
 - [x] **AUTH-05** [FE+BE]: New account is credited 10,000 USDT virtual balance exactly once
 
 ### Market Data (DATA)
@@ -134,10 +134,10 @@ Deferred. Tracked but not in current roadmap.
 | MEM-03 | Phase 1 | Complete |
 | MEM-04 | Phase 1 | Complete |
 | QA-01 | Phase 1 | Complete |
-| AUTH-01 | Phase 2 | Pending |
-| AUTH-02 | Phase 2 | Pending |
-| AUTH-03 | Phase 2 | Pending |
-| AUTH-04 | Phase 2 | Pending |
+| AUTH-01 | Phase 2 | Complete |
+| AUTH-02 | Phase 2 | Complete |
+| AUTH-03 | Phase 2 | Complete |
+| AUTH-04 | Phase 2 | Complete |
 | AUTH-05 | Phase 2 | Complete |
 | QA-02 | Phase 2 | Pending |
 | DATA-01 | Phase 3 | Pending |
