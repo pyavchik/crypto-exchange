@@ -26,6 +26,11 @@ import { chromium } from "playwright-core";
 const REPO_ROOT = fileURLToPath(new URL("..", import.meta.url));
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const FIXED_REQUEST_ID = "3f0c8a6e-2b1d-4c9e-9a7f-5d4e3c2b1a09";
+// D-51: short enough that the degraded-path section below can wait out a
+// real expiry in seconds, long enough that the existing markets cache
+// assertion (a reload a second or two after the first load must not
+// produce a second upstream hit) still holds.
+const MARKETS_TTL_MS = 10_000;
 
 function fail(reason) {
   // Throws rather than exiting directly so the caller's finally block still
@@ -110,6 +115,28 @@ function buildMarketsFixture() {
   return entries;
 }
 
+// D-51/MKT-04: 60 ascending millisecond-timestamped points, plus the
+// market_caps/total_volumes arrays CoinGecko always returns alongside
+// `prices` — the mapper (toChartPoints) reads only `prices`, so this
+// exercises its ignore-the-rest behavior against a realistic body rather
+// than a stripped-down fixture.
+const CHART_POINT_COUNT = 60;
+const CHART_START_MS = Date.UTC(2026, 8, 14, 0, 0, 0);
+const CHART_INTERVAL_MS = 5 * 60 * 1000;
+
+function buildChartFixture() {
+  const prices = [];
+  const marketCaps = [];
+  const totalVolumes = [];
+  for (let i = 0; i < CHART_POINT_COUNT; i += 1) {
+    const timestampMs = CHART_START_MS + i * CHART_INTERVAL_MS;
+    prices.push([timestampMs, 75_000 + i * 10]);
+    marketCaps.push([timestampMs, 1_500_000_000_000 + i * 1_000_000]);
+    totalVolumes.push([timestampMs, 30_000_000_000 + i * 100_000]);
+  }
+  return { prices, market_caps: marketCaps, total_volumes: totalVolumes };
+}
+
 function startStub() {
   const state = {
     hits: 0,
@@ -117,6 +144,13 @@ function startStub() {
     marketsHits: 0,
     lastMarketsKeyHeader: null,
     lastMarketsQuery: null,
+    chartHits: 0,
+    lastChartKeyHeader: null,
+    lastChartPath: null,
+    lastChartQuery: null,
+    // D-51: forced by the smoke script's own control path below, never by
+    // rate-limiting the real CoinGecko API. Null means "answer normally".
+    forcedMarketsStatus: null,
   };
   const server = createHttpServer((req, res) => {
     const [path, query] = (req.url ?? "").split("?");
@@ -131,8 +165,45 @@ function startStub() {
       state.marketsHits += 1;
       state.lastMarketsKeyHeader = req.headers["x-cg-demo-api-key"] ?? null;
       state.lastMarketsQuery = query ?? "";
+      if (state.forcedMarketsStatus !== null) {
+        // CoinGecko's own rate-limit body shape (not this project's D-09
+        // envelope) — captured live in 03-RESEARCH.md — since the API under
+        // test must classify on the HTTP status code alone, never by
+        // parsing this body.
+        res.writeHead(state.forcedMarketsStatus, { "content-type": "application/json" });
+        res.end(
+          JSON.stringify({
+            status: {
+              error_code: state.forcedMarketsStatus,
+              error_message:
+                "You've exceeded the Rate Limit. Please visit https://www.coingecko.com/en/api/pricing to subscribe to our API plans for higher rate limits.",
+            },
+          }),
+        );
+        return;
+      }
       res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify(buildMarketsFixture()));
+      return;
+    }
+    if (req.method === "GET" && path.startsWith("/coins/") && path.endsWith("/market_chart")) {
+      state.chartHits += 1;
+      state.lastChartKeyHeader = req.headers["x-cg-demo-api-key"] ?? null;
+      state.lastChartPath = path;
+      state.lastChartQuery = query ?? "";
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify(buildChartFixture()));
+      return;
+    }
+    // Internal-only control path this smoke stub exposes to itself: sets or
+    // clears the forced markets status above. Not part of the application
+    // or of any deployed artifact — the stub binds a random loopback port
+    // that lives only for this run (T-03-24).
+    if (req.method === "GET" && path === "/__control/markets-status") {
+      const forced = new URLSearchParams(query ?? "").get("status");
+      state.forcedMarketsStatus = forced ? Number(forced) : null;
+      res.writeHead(204);
+      res.end();
       return;
     }
     res.writeHead(404);
@@ -232,6 +303,7 @@ async function main() {
     DATABASE_PATH: databasePath,
     LOG_FILE: logFilePath,
     GIT_COMMIT: "smoke",
+    MARKETS_TTL_MS: String(MARKETS_TTL_MS),
   };
 
   const devProcess = spawn("npm", ["run", "dev"], {
@@ -806,12 +878,304 @@ async function main() {
       );
     }
 
-    // Success-criterion-3 proof: iterate every request recorded since page
-    // creation and fail on any that leaves localhost/127.0.0.1 or carries
-    // the Demo key in a URL, header, or post body. The hostname rule is what
-    // makes this a guarantee rather than a spot check — the markets payload
-    // carries no external URL of any kind (no image field is mapped), so a
-    // request to any other host means something in the app reached outside.
+    // (s) Chart: click a pair from the markets table, land on its trade
+    // page, and prove the chart actually draws and redraws in place across
+    // every window switch — MKT-04, D-37. The clicked coin id is read from
+    // the row's own attribute, never hardcoded, since the curated top-20
+    // changes over time (D-36).
+    async function waitForPathname(predicate, timeoutMs, description) {
+      const deadline = Date.now() + timeoutMs;
+      let lastPathname = "";
+      while (Date.now() < deadline) {
+        lastPathname = new URL(page.url()).pathname;
+        if (predicate(lastPathname)) return lastPathname;
+        await new Promise((r) => setTimeout(r, 200));
+      }
+      fail(
+        `browser: pathname did not reach ${description} within ${timeoutMs}ms (last: "${lastPathname}")`,
+      );
+      return lastPathname; // unreachable — fail() always throws
+    }
+
+    async function waitForTestIdCount(testId, predicate, timeoutMs, description) {
+      const deadline = Date.now() + timeoutMs;
+      let lastCount = 0;
+      while (Date.now() < deadline) {
+        lastCount = await page.getByTestId(testId).count();
+        if (predicate(lastCount)) return lastCount;
+        await new Promise((r) => setTimeout(r, 200));
+      }
+      fail(
+        `browser: "${testId}" count did not reach ${description} within ${timeoutMs}ms (last count: ${lastCount})`,
+      );
+      return lastCount; // unreachable — fail() always throws
+    }
+
+    async function waitForChartHitIncrease(previousCount, timeoutMs, description) {
+      const deadline = Date.now() + timeoutMs;
+      while (Date.now() < deadline) {
+        if (stub.state.chartHits > previousCount) return stub.state.chartHits;
+        await new Promise((r) => setTimeout(r, 200));
+      }
+      fail(
+        `browser: chart stub hit count did not increase within ${timeoutMs}ms (${description}, still at ${stub.state.chartHits})`,
+      );
+      return stub.state.chartHits; // unreachable — fail() always throws
+    }
+
+    const firstRowCoinId = await page
+      .getByTestId("markets-row")
+      .first()
+      .getAttribute("data-coin-id");
+    if (!firstRowCoinId) fail("browser: first markets row had no data-coin-id attribute");
+
+    await page.locator(`[data-testid="markets-row"][data-coin-id="${firstRowCoinId}"] a`).click();
+    const expectedTradePath = `/trade/${firstRowCoinId}`;
+    await waitForPathname(
+      (pathname) => pathname === expectedTradePath,
+      10_000,
+      `"${expectedTradePath}"`,
+    );
+
+    await waitForTestIdCount(
+      "chart-ready",
+      (count) => count > 0,
+      15_000,
+      "the chart-ready sentinel after navigating to the trade page",
+    );
+
+    // lightweight-charts composes several stacked canvases per single chart
+    // instance (the main pane, the crosshair layer, the price/time axes) —
+    // "a canvas element exists" is the plan's own literal requirement, not
+    // "exactly one" globally. The leak this assertion exists to catch is a
+    // SECOND chart instance stacking a full extra set of canvases on top of
+    // the first — so the baseline captured right after the first draw, not
+    // a hardcoded "1", is what every later count must still equal.
+    const chartContainer = page.getByTestId("price-chart");
+    const initialCanvasCount = await chartContainer.locator("canvas").count();
+    if (initialCanvasCount <= 0) {
+      fail("browser: expected at least one canvas inside the chart container, found none");
+    }
+    const canvasBox = await chartContainer.locator("canvas").first().boundingBox();
+    if (!canvasBox || canvasBox.width <= 0 || canvasBox.height <= 0) {
+      fail(`browser: chart canvas had non-positive dimensions (${JSON.stringify(canvasBox)})`);
+    }
+
+    const chartHitsBefore7d = stub.state.chartHits;
+    await page.locator('[data-window="7d"]').click();
+    await waitForChartHitIncrease(chartHitsBefore7d, 10_000, "7D window switch");
+    let canvasCount = await chartContainer.locator("canvas").count();
+    if (canvasCount !== initialCanvasCount) {
+      fail(
+        `browser: canvas count changed after switching to 7D (a teardown that never ran leaves the previous chart's canvases behind) — was ${initialCanvasCount}, now ${canvasCount}`,
+      );
+    }
+
+    const chartHitsBefore30d = stub.state.chartHits;
+    await page.locator('[data-window="30d"]').click();
+    await waitForChartHitIncrease(chartHitsBefore30d, 10_000, "30D window switch");
+    canvasCount = await chartContainer.locator("canvas").count();
+    if (canvasCount !== initialCanvasCount) {
+      fail(
+        `browser: canvas count changed after switching to 30D (a teardown that never ran leaves the previous chart's canvases behind) — was ${initialCanvasCount}, now ${canvasCount}`,
+      );
+    }
+
+    const lastChartQuery = stub.state.lastChartQuery ?? "";
+    if (!lastChartQuery.includes("vs_currency=usd")) {
+      fail(`stub recorded chart query "${lastChartQuery}" missing vs_currency=usd`);
+    }
+    if (!lastChartQuery.includes("days=30")) {
+      fail(`stub recorded chart query "${lastChartQuery}" missing days=30 for the 30D window`);
+    }
+    if (!(stub.state.lastChartPath ?? "").includes(firstRowCoinId)) {
+      fail(
+        `stub recorded chart path "${stub.state.lastChartPath}" missing the clicked coin id "${firstRowCoinId}"`,
+      );
+    }
+    if (stub.state.lastChartKeyHeader !== "smoke-test-key") {
+      fail(
+        `stub recorded chart key header "${stub.state.lastChartKeyHeader}", expected "smoke-test-key"`,
+      );
+    }
+
+    if (pageErrors.length > 0 || consoleErrors.length > 0) {
+      fail(
+        `browser: page/console errors detected during the chart section — pageErrors: ${JSON.stringify(
+          pageErrors,
+        )}, consoleErrors: ${JSON.stringify(consoleErrors)}`,
+      );
+    }
+
+    // (t) Interactions the Node test environment cannot reach: typing in the
+    // search box must filter client-side with no network call at all, and
+    // clicking a sortable column header must actually reorder the rendered
+    // rows. Back on the markets page for this section.
+    function countMarketsApiRequests() {
+      return allRequests.filter((request) => {
+        try {
+          return new URL(request.url()).pathname === "/api/markets";
+        } catch {
+          return false;
+        }
+      }).length;
+    }
+
+    await page.goto(`http://localhost:${webPort}/markets`);
+    await waitForMarketsRowCount(
+      (count) => count === 20,
+      15_000,
+      "20 on the interactions section's own load",
+    );
+
+    const marketsRequestCountBeforeSearch = countMarketsApiRequests();
+    await page.getByTestId("markets-search").fill("ether");
+    await waitForMarketsRowCount(
+      (count) => count > 0 && count < 20,
+      10_000,
+      'fewer than 20 after searching "ether"',
+    );
+    const searchRowCoinIds = await page
+      .getByTestId("markets-row")
+      .evaluateAll((elements) => elements.map((element) => element.getAttribute("data-coin-id")));
+    if (!searchRowCoinIds.includes("ethereum")) {
+      fail(
+        `browser: search for "ether" did not keep the ethereum row (rendered ids: ${JSON.stringify(searchRowCoinIds)})`,
+      );
+    }
+    if (searchRowCoinIds.includes("bitcoin")) {
+      fail(`browser: search for "ether" incorrectly kept an unrelated row (bitcoin)`);
+    }
+    const marketsRequestCountAfterSearch = countMarketsApiRequests();
+    if (marketsRequestCountAfterSearch !== marketsRequestCountBeforeSearch) {
+      fail(
+        `browser: typing in the search box produced ${
+          marketsRequestCountAfterSearch - marketsRequestCountBeforeSearch
+        } new /api/markets request(s), expected 0 — filtering is client-side over the already-fetched payload`,
+      );
+    }
+
+    await page.getByTestId("markets-search").fill("");
+    await waitForMarketsRowCount((count) => count === 20, 10_000, "20 after clearing the search");
+
+    const priceHeader = page.locator('[data-sort-key="price"]');
+    await priceHeader.click();
+    await new Promise((r) => setTimeout(r, 300));
+    const firstSortedId1 = await page
+      .getByTestId("markets-row")
+      .first()
+      .getAttribute("data-coin-id");
+    await priceHeader.click();
+    await new Promise((r) => setTimeout(r, 300));
+    const firstSortedId2 = await page
+      .getByTestId("markets-row")
+      .first()
+      .getAttribute("data-coin-id");
+    if (firstSortedId1 === firstSortedId2) {
+      fail(
+        `browser: clicking the price column header twice did not change the first row's coin id (both were "${firstSortedId1}")`,
+      );
+    }
+
+    if (pageErrors.length > 0 || consoleErrors.length > 0) {
+      fail(
+        `browser: page/console errors detected during the interactions section — pageErrors: ${JSON.stringify(
+          pageErrors,
+        )}, consoleErrors: ${JSON.stringify(consoleErrors)}`,
+      );
+    }
+
+    // (u) Degraded path: the browser proof of DATA-03. Force the markets
+    // upstream to fail via the stub's own control path (D-51 — never by
+    // rate-limiting the real API), wait past the shortened MARKETS_TTL_MS so
+    // the cached value actually expires, and prove the app degrades to the
+    // last-good cached prices behind a dated "prices delayed" banner while
+    // the server logs why.
+    async function setForcedMarketsStatus(status) {
+      const url =
+        status === null
+          ? `http://127.0.0.1:${stub.port}/__control/markets-status`
+          : `http://127.0.0.1:${stub.port}/__control/markets-status?status=${status}`;
+      const response = await fetch(url);
+      if (response.status !== 204) {
+        fail(`browser: control endpoint returned ${response.status}, expected 204`);
+      }
+    }
+
+    async function waitForTestIdText(testId, predicate, timeoutMs, description) {
+      const deadline = Date.now() + timeoutMs;
+      let lastText = "";
+      while (Date.now() < deadline) {
+        lastText =
+          (await page
+            .getByTestId(testId)
+            .first()
+            .textContent()
+            .catch(() => "")) ?? "";
+        if (predicate(lastText)) return lastText;
+        await new Promise((r) => setTimeout(r, 200));
+      }
+      fail(
+        `browser: "${testId}" did not show ${description} within ${timeoutMs}ms (last text: "${lastText}")`,
+      );
+      return lastText; // unreachable — fail() always throws
+    }
+
+    await setForcedMarketsStatus(429);
+    await new Promise((r) => setTimeout(r, MARKETS_TTL_MS + 3_000));
+
+    await page.goto(`http://localhost:${webPort}/markets`);
+
+    const staleBannerText = await waitForTestIdText(
+      "stale-banner",
+      (text) => text.length > 0,
+      15_000,
+      "the prices-delayed banner",
+    );
+    if (!/delayed/i.test(staleBannerText)) {
+      fail(`browser: stale banner text missing "delayed" wording (text: "${staleBannerText}")`);
+    }
+    if (!/ago|last updated/i.test(staleBannerText)) {
+      fail(`browser: stale banner text missing a data-age phrase (text: "${staleBannerText}")`);
+    }
+    await waitForMarketsRowCount(
+      (count) => count === 20,
+      10_000,
+      "still 20 rows while degraded — the point of the fallback is old prices, not a failed page",
+    );
+
+    const staleLine = await pollForLogLine(
+      logFilePath,
+      (entry) => entry.msg === "serving stale market data" && entry.resource === "markets",
+      10_000,
+    );
+    if (!staleLine) {
+      fail('no matching "serving stale market data" log line found within 10s');
+    }
+    if (!staleLine.parsed.requestId) {
+      fail("stale-serve log line is missing a requestId field");
+    }
+    if (staleLine.parsed.reason !== "http_429") {
+      fail(`stale-serve log line reason was "${staleLine.parsed.reason}", expected "http_429"`);
+    }
+
+    await setForcedMarketsStatus(null);
+    await new Promise((r) => setTimeout(r, MARKETS_TTL_MS + 3_000));
+    await page.reload();
+    await waitForMarketsRowCount((count) => count === 20, 15_000, "20 after the recovery reload");
+    const staleBannerCountAfterRecovery = await page.getByTestId("stale-banner").count();
+    if (staleBannerCountAfterRecovery !== 0) {
+      fail(
+        `browser: stale banner still present after recovery (count: ${staleBannerCountAfterRecovery}) — a banner that never clears is as wrong as one that never appears`,
+      );
+    }
+
+    // (v) Whole-journey security assertion (success criterion 3, DATA-01):
+    // re-run over every request recorded since the page was created —
+    // including everything the trade page, the chart and the degraded path
+    // above added, not just the earlier markets section. Fail on any that
+    // left localhost/127.0.0.1 or carried the Demo key in a URL, header, or
+    // post body.
     const REDACTED = "[REDACTED]";
     function redact(text) {
       return text.split(devEnv.COINGECKO_API_KEY).join(REDACTED);
@@ -860,9 +1224,13 @@ async function main() {
       fail("log file contains the configured CoinGecko API key (markets upstream call)");
     }
 
+    // Final page-error and console-error assertion, naming the whole browser
+    // journey — markets, trade, chart, interactions and the degraded path —
+    // so a React error anywhere in that journey fails the run rather than
+    // passing silently.
     if (pageErrors.length > 0 || consoleErrors.length > 0) {
       fail(
-        `browser: page/console errors detected during the markets section — pageErrors: ${JSON.stringify(
+        `browser: page/console errors detected during the whole browser journey — pageErrors: ${JSON.stringify(
           pageErrors,
         )}, consoleErrors: ${JSON.stringify(consoleErrors)}`,
       );

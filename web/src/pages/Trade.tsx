@@ -115,7 +115,6 @@ export function TradeView({
 
   const { fetchedAt, stale } = marketsState.data;
   const change = formatPercent(pair.change24hPct);
-  const points = chartState.kind === "ok" ? chartState.data.points : [];
 
   return (
     <section>
@@ -145,7 +144,17 @@ export function TradeView({
           </button>
         ))}
       </div>
-      <PriceChart points={points} />
+      {/* Only ever mounted once chartState has resolved for the first time
+          (never on "loading", which after that first success never recurs —
+          see the doc comment above) — every points array PriceChart ever
+          receives is therefore already known non-empty (toChartPoints
+          throws on an empty upstream body), so its own chart-ready sentinel
+          only ever flips once a real series has actually drawn. */}
+      {chartState.kind === "ok" ? (
+        <PriceChart points={chartState.data.points} />
+      ) : (
+        <p data-testid="chart-loading">Loading chart…</p>
+      )}
       {/* MKT-05/D-48: the trade page additionally attributes the chart
           series, alongside the prices attribution already on /markets and
           in the shell footer. The TradingView credit the chart library's
