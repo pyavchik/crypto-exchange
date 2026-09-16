@@ -4,6 +4,12 @@
 // web -> api -> SQLite -> upstream -> logs path. POSIX only (fine for macOS
 // dev and Linux CI). Never uses fixed ports so multiple runs (or a developer's
 // own `npm run dev`) never collide.
+//
+// It also drives the developer's installed Google Chrome through
+// playwright-core (a library, no bundled browser download) to prove the
+// footer health badge actually renders correctly in a real browser — the
+// class of bug that pure-Node fetch checks and Vitest's fake DOM cannot
+// catch (see BUG-001). The browser step needs Google Chrome installed.
 
 import { spawn } from "node:child_process";
 import { createServer as createHttpServer } from "node:http";
@@ -13,6 +19,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import Database from "better-sqlite3";
+import { chromium } from "playwright-core";
 
 const REPO_ROOT = fileURLToPath(new URL("..", import.meta.url));
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -104,6 +111,24 @@ async function pollForLogLine(logFilePath, predicate, timeoutMs) {
   return null;
 }
 
+// Polls the health-badge textContent every 200ms until predicate(text) is
+// true, then returns that text. Uses textContent() rather than a text
+// locator because the badge nests spans (e.g. "API ok" + "CoinGecko: ok"),
+// and a substring text locator can match several elements at once.
+async function waitForBadge(page, predicate, timeoutMs, description) {
+  const deadline = Date.now() + timeoutMs;
+  let lastText = "";
+  while (Date.now() < deadline) {
+    lastText = (await page.getByTestId("health-badge").textContent()) ?? "";
+    if (predicate(lastText)) return lastText;
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  fail(
+    `browser: badge did not show ${description} within ${timeoutMs}ms (last text: "${lastText}")`,
+  );
+  return lastText; // unreachable — fail() always throws; keeps type flow simple
+}
+
 async function main() {
   const tempDir = mkdtempSync(join(tmpdir(), "crypto-exchange-smoke-"));
   const stub = await startStub();
@@ -139,6 +164,9 @@ async function main() {
   });
 
   let exitCode = 0;
+  // Declared before the try so the finally block can close it even if a
+  // check before browser setup fails.
+  let browser = null;
 
   try {
     await pollUntilOk(`http://localhost:${apiPort}/health`, {}, 30_000);
@@ -233,11 +261,85 @@ async function main() {
     db.close();
     if (row.n !== 1) fail(`upstream_checks has ${row.n} rows, expected exactly 1`);
 
+    // (h0) favicon served with the right content-type (G-01-4)
+    const faviconResponse = await fetch(`http://localhost:${webPort}/favicon.svg`);
+    if (faviconResponse.status !== 200) {
+      fail(`favicon.svg returned status ${faviconResponse.status}`);
+    }
+    const faviconContentType = faviconResponse.headers.get("content-type") ?? "";
+    if (!faviconContentType.includes("svg")) {
+      fail(`favicon.svg content-type "${faviconContentType}" does not contain "svg"`);
+    }
+
+    // (h) launch installed Google Chrome via playwright-core and load the app.
+    // headless:true with no user-data directory gives a fresh temporary
+    // profile every run — the developer's real Chrome profile, cookies and
+    // extensions are never touched, and only the localhost ports this script
+    // picked are ever navigated to.
+    try {
+      browser = await chromium.launch({ channel: "chrome", headless: true });
+    } catch (error) {
+      fail(
+        `browser: launch failed — the browser step needs Google Chrome installed (${
+          error instanceof Error ? error.message : String(error)
+        })`,
+      );
+    }
+    console.log(`browser: Chrome ${browser.version()}`);
+
+    const pageErrors = [];
+    const consoleErrors = [];
+    const healthRequestTimes = [];
+
+    const page = await browser.newPage();
+    page.on("pageerror", (error) => {
+      pageErrors.push(error.message);
+    });
+    page.on("console", (message) => {
+      if (message.type() === "error") consoleErrors.push(message.text());
+    });
+    page.on("request", (request) => {
+      if (new URL(request.url()).pathname === "/health") {
+        healthRequestTimes.push(Date.now());
+      }
+    });
+
+    await page.goto(`http://localhost:${webPort}/`);
+
+    await waitForBadge(
+      page,
+      (text) => text.includes("API ok") && text.includes("CoinGecko: ok"),
+      30_000,
+      '"API ok" and "CoinGecko: ok"',
+    );
+    const badgeOkAt = Date.now();
+
+    await new Promise((r) => setTimeout(r, 2_000));
+    const stableText = (await page.getByTestId("health-badge").textContent()) ?? "";
+    if (!stableText.includes("API ok") || stableText.includes("API unreachable")) {
+      fail(`browser: badge text unstable 2s after ok: "${stableText}"`);
+    }
+
+    if (pageErrors.length > 0 || consoleErrors.length > 0) {
+      fail(
+        `browser: page/console errors detected — pageErrors: ${JSON.stringify(
+          pageErrors,
+        )}, consoleErrors: ${JSON.stringify(consoleErrors)}`,
+      );
+    }
+
     console.log("SMOKE OK");
   } catch (error) {
     exitCode = 1;
     console.error(`SMOKE FAIL: ${error instanceof Error ? error.message : String(error)}`);
   } finally {
+    if (browser) {
+      try {
+        await browser.close();
+      } catch {
+        // already closed, or never fully launched
+      }
+    }
     if (devProcess.pid) {
       try {
         process.kill(-devProcess.pid, "SIGTERM");
