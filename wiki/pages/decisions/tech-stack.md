@@ -1,9 +1,9 @@
 ---
 title: Tech stack (React+TS / Node+TS / SQLite)
 type: decision
-updated: 2026-09-15
+updated: 2026-09-16
 sources: []
-related: [[project-overview]], [[foundation-skeleton-conventions]]
+related: [[project-overview]], [[foundation-skeleton-conventions]], [[health-poller-illegal-invocation]]
 ---
 
 # Tech stack
@@ -28,6 +28,10 @@ QA-focused audience.
   typescript-eslint + Prettier 3; GitHub Actions CI on Node 24.
 - TypeScript pinned to `~6.0.3` (not a newer 7.x line) because `typescript-eslint@8.70.0`
   declares a peer `typescript` range below `6.1.0` — verified via `npm view` before install.
+- `playwright-core` 1.63 as a root devDependency (library only, not the Playwright test runner),
+  used by the `npm run smoke` browser step to drive installed Google Chrome via the `"chrome"`
+  channel (the bundled Chromium cannot be installed on macOS 13); added in Phase 1 gap closure
+  after [[health-poller-illegal-invocation]].
 
 ## Consequences
 
@@ -38,3 +42,5 @@ QA-focused audience.
   as `free-hosting-public-repo`, added alongside this page).
 - Any future TypeScript major-version bump must first confirm `typescript-eslint`'s peer range,
   or lint tooling breaks across all three workspaces.
+- The `npm run smoke` real-browser step needs Google Chrome installed locally and is not a CI
+  job; Phase 6 AUT-02 builds its Playwright suite and CI job on the same `playwright-core` line.
