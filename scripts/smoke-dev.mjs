@@ -717,6 +717,16 @@ async function main() {
     // right before this section's own navigation, rather than an absolute
     // count, so this section's assertions are about ITS OWN dedup and cache
     // behavior, not about how many markets fetches happened earlier.
+    //
+    // 03-03 (D-40): the markets page now runs its own 30s visibility-aware
+    // poller, not a one-shot fetch. Section (i)'s wait parks the browser on
+    // "/" (redirected to /markets) for 50-70 real seconds, so that poller's
+    // own background refresh can land during the wait and keep the
+    // server-side 45s cache warm right up to this section's navigation —
+    // legitimately producing ZERO new upstream hits here, not a bug. The
+    // assertion below therefore tolerates 0 (already warm from the
+    // background poller) or 1 (cache had expired, a fresh dedup'd fetch),
+    // and still fails on 2+ (a real double-effect dedup regression).
     const marketsHitsBeforeSection = stub.state.marketsHits;
 
     await page.goto(`http://localhost:${webPort}/markets`);
@@ -767,9 +777,10 @@ async function main() {
     }
 
     const marketsHitsAfterFirstLoad = stub.state.marketsHits;
-    if (marketsHitsAfterFirstLoad !== marketsHitsBeforeSection + 1) {
+    const newMarketsHitsThisLoad = marketsHitsAfterFirstLoad - marketsHitsBeforeSection;
+    if (newMarketsHitsThisLoad < 0 || newMarketsHitsThisLoad > 1) {
       fail(
-        `this navigation caused ${marketsHitsAfterFirstLoad - marketsHitsBeforeSection} markets upstream hits, expected exactly 1 (dedup across the browser's double-effect load)`,
+        `this navigation caused ${newMarketsHitsThisLoad} markets upstream hits, expected 0 (already served from the still-warm server cache, refreshed in the background by the 30s FE poller during an earlier section) or 1 (dedup across the browser's double-effect load) — never 2+`,
       );
     }
     if (stub.state.lastMarketsKeyHeader !== "smoke-test-key") {
