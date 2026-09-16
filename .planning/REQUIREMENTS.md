@@ -32,9 +32,9 @@ Tracks: **FE** = frontend (React+TS), **BE** = backend (Node+TS, SQLite), **QA**
 ### Market Data (DATA)
 
 - [ ] **DATA-01** [BE]: API proxies CoinGecko; the Demo API key is never sent to the browser
-- [ ] **DATA-02** [BE]: API caches market responses (TTL ≈ 30–60 s) so any number of clients stays within Demo rate limits
+- [x] **DATA-02** [BE]: API caches market responses (TTL ≈ 30–60 s) so any number of clients stays within Demo rate limits
 - [ ] **DATA-03** [BE+FE]: On upstream 429/timeout the API serves last cached data flagged `stale: true`, and the UI shows a "prices delayed" banner
-- [ ] **DATA-04** [BE]: Tradable pairs are a curated list (e.g. top 20 by market cap) quoted in USDT
+- [x] **DATA-04** [BE]: Tradable pairs are a curated list (e.g. top 20 by market cap) quoted in USDT
 
 ### Markets (MKT)
 
@@ -141,9 +141,9 @@ Deferred. Tracked but not in current roadmap.
 | AUTH-05 | Phase 2 | Complete |
 | QA-02 | Phase 2 | Complete |
 | DATA-01 | Phase 3 | Pending |
-| DATA-02 | Phase 3 | Pending |
+| DATA-02 | Phase 3 | Complete |
 | DATA-03 | Phase 3 | Pending |
-| DATA-04 | Phase 3 | Pending |
+| DATA-04 | Phase 3 | Complete |
 | MKT-01 | Phase 3 | Pending |
 | MKT-02 | Phase 3 | Pending |
 | MKT-03 | Phase 3 | Pending |

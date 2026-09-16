@@ -2,18 +2,18 @@
 gsd_state_version: "1.0"
 current_phase: 3
 current_phase_name: Live Markets
-current_plan: 2
+current_plan: 3
 status: executing
-stopped_at: Completed 03-01-PLAN.md
-last_updated: "2026-09-16T10:23:40.639Z"
+stopped_at: Completed 03-02-PLAN.md
+last_updated: "2026-09-16T10:45:52.677Z"
 last_activity: 2026-09-16
 last_activity_desc: Phase 02 complete, transitioned to Phase 3
-state_head: f8548fe94efa31c37770e37cd2ea7222c7b79bf2
+state_head: 1f9fbd275d878381e28985d5899bf6af270175f5
 progress:
   total_phases: 7
   completed_phases: 2
   total_plans: 21
-  completed_plans: 17
+  completed_plans: 18
   percent: 29
 ---
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-09-15)
 ## Current Position
 
 Phase: 3 — Live Markets
-Current Plan: 2
+Current Plan: 3
 Total Plans in Phase: 5
 Status: Ready to execute
 Last activity: 2026-09-16 — Phase 02 complete, transitioned to Phase 3
@@ -68,6 +68,7 @@ Progress: [███░░░░░░░] 29%
 | Phase 02-accounts P04 | ~40min | 2 tasks | 6 files |
 | Phase 02-accounts P05 | ~20min | 3 tasks | 4 files |
 | Phase 03-live-markets P01 | 36min | 3 tasks | 16 files |
+| Phase 03 P02 | ~50min | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -105,6 +106,9 @@ Recent decisions affecting current work:
 - [Phase 03-live-markets]: Generalized keyed TTL cache + in-flight dedupe (keyedCache.ts) is now the single dedupe primitive in the repo; coingecko.ts refactored onto it with /ping behavior unchanged
 - [Phase 03-live-markets]: A 502 UPSTREAM_UNAVAILABLE AppError is sent directly by the markets route handler, bypassing the global D-09 error handler 5xx masking path, rather than weakening that handler
 - [Phase 03-live-markets]: In-memory Map cache for market data (not SQLite) - no audit-trail requirement, cheaply rebuilt every 45s, Claude Discretion per 03-CONTEXT.md
+- [Phase 3]: onStale fires once per actual upstream failure (inside the deduped fetcher), not once per concurrent resolve() caller
+- [Phase 3]: keyedCache.ts stays domain-agnostic: extracts D-43 log reason via a duck-typed .reason property on the rejected error, falling back to .message
+- [Phase 3]: Chart failures reuse MarketDataUpstreamError (same 502/UPSTREAM_UNAVAILABLE/.reason contract as markets) rather than a second error type
 
 ### Pending Todos
 
@@ -123,6 +127,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-09-16T10:23:40.564Z
-Stopped at: Completed 03-01-PLAN.md
+Last session: 2026-09-16T10:45:52.594Z
+Stopped at: Completed 03-02-PLAN.md
 Resume file: None
