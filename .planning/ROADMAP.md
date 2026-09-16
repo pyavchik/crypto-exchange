@@ -117,13 +117,13 @@ Plans:
   4. When CoinGecko returns 429 or times out, the UI shows cached prices with a "prices delayed" banner
   5. Market data test cases are written and executed
 
-**Plans**: 2/5 plans executed
+**Plans**: 3/5 plans executed
 
 Plans:
 
 - [x] 03-01-PLAN.md — Tracer: keyed TTL cache + dedupe, CoinGecko markets client, `GET /api/markets`, formatting module, markets table, real-browser key-exposure proof
 - [x] 03-02-PLAN.md — BE: stale-serve fallback with request-id logging, deterministic TTL seam, chart series, `GET /api/markets/:id/chart` with curated-list validation
-- [ ] 03-03-PLAN.md — FE: shared receiver-safe poller, 30s visibility-aware refresh, client-side search/sort, prices-delayed banner
+- [x] 03-03-PLAN.md — FE: shared receiver-safe poller, 30s visibility-aware refresh, client-side search/sort, prices-delayed banner
 - [ ] 03-04-PLAN.md — FE: `lightweight-charts` controller, trade page with 1D/7D/30D chart, and the real-browser proof of the chart, interactions and degraded path
 - [ ] 03-05-PLAN.md — QA: market-data test cases + executed run report, verified rate limits in TEST-PLAN, wiki decision record
 
@@ -133,7 +133,7 @@ Plans:
 
 **Wave 2** (parallel — no file overlap)
 
-- [ ] 03-02: BE expansion — stale serving and the chart endpoint
+- [x] 03-02: BE expansion — stale serving and the chart endpoint
 - [ ] 03-03: FE expansion — polling, search, sort, stale banner
 
 **Wave 3**
@@ -242,7 +242,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 |-------|----------------|--------|-----------|
 | 1. Foundation & Project Memory | 11/11 | Complete    | 2026-09-16 |
 | 2. Accounts | 5/5 | Complete    | 2026-09-16 |
-| 3. Live Markets | 2/5 | In Progress|  |
+| 3. Live Markets | 3/5 | In Progress|  |
 | 4. Wallet & Market Orders | 0/4 | Not started | - |
 | 5. Limit Orders & History | 0/4 | Not started | - |
 | 6. QA Hardening | 0/4 | Not started | - |

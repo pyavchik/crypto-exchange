@@ -38,9 +38,9 @@ Tracks: **FE** = frontend (React+TS), **BE** = backend (Node+TS, SQLite), **QA**
 
 ### Markets (MKT)
 
-- [ ] **MKT-01** [FE]: User can view a markets table: coin, last price, 24h change %, 24h volume, market cap
-- [ ] **MKT-02** [FE]: User can search markets by name or symbol
-- [ ] **MKT-03** [FE]: User can sort markets by price, 24h change and volume
+- [x] **MKT-01** [FE]: User can view a markets table: coin, last price, 24h change %, 24h volume, market cap
+- [x] **MKT-02** [FE]: User can search markets by name or symbol
+- [x] **MKT-03** [FE]: User can sort markets by price, 24h change and volume
 - [ ] **MKT-04** [FE]: User can open a pair's trade page showing a price chart (1D / 7D / 30D)
 - [ ] **MKT-05** [FE]: Prices auto-refresh without page reload and show "last updated" time; "Powered by CoinGecko" attribution visible
 
@@ -144,9 +144,9 @@ Deferred. Tracked but not in current roadmap.
 | DATA-02 | Phase 3 | Complete |
 | DATA-03 | Phase 3 | Pending |
 | DATA-04 | Phase 3 | Complete |
-| MKT-01 | Phase 3 | Pending |
-| MKT-02 | Phase 3 | Pending |
-| MKT-03 | Phase 3 | Pending |
+| MKT-01 | Phase 3 | Complete |
+| MKT-02 | Phase 3 | Complete |
+| MKT-03 | Phase 3 | Complete |
 | MKT-04 | Phase 3 | Pending |
 | MKT-05 | Phase 3 | Pending |
 | QA-03 | Phase 3 | Pending |
