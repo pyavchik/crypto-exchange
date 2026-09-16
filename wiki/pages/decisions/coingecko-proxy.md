@@ -1,9 +1,9 @@
 ---
 title: Backend proxy + cache for CoinGecko
 type: decision
-updated: 2026-09-15
+updated: 2026-09-16
 sources: [raw/2026-09-15-coingecko-demo-api.md]
-related: [[coingecko-api]], [[market-data-caching]], [[foundation-skeleton-conventions]]
+related: [[coingecko-api]], [[market-data-caching]], [[market-data-cache-and-stale]], [[foundation-skeleton-conventions]]
 ---
 
 # Backend proxy + cache for CoinGecko
@@ -13,9 +13,10 @@ related: [[coingecko-api]], [[market-data-caching]], [[foundation-skeleton-conve
 
 ## Context
 
-The CoinGecko Demo API key must never reach the browser, and its rate limits — about 30
-calls/min and 10k calls/month (unverified) ([[coingecko-api]]) — must be respected regardless
-of how many clients are viewing the app.
+The CoinGecko Demo API key must never reach the browser, and its rate limits — verified in Phase 3
+as **100 calls/min, 10,000 call credits/month** ([[coingecko-api]]; the older "≈30 calls/min"
+figure this row originally cited is superseded, see [[market-data-cache-and-stale]]) — must be
+respected regardless of how many clients are viewing the app.
 
 ## Decision
 
@@ -25,9 +26,9 @@ of how many clients are viewing the app.
   local fake instead of the live API.
 - Phase 1 applies this to `/health`'s `/ping` check: a lazy, 5-minute SQLite-backed cache,
   called only when a client hits `/health` ([[foundation-skeleton-conventions]]).
-- The Phase 3 market-data TTL and refresh strategy (how often `/coins/markets` and
-  `/simple/price` are refreshed) is still open — see [[market-data-caching]] for the options
-  under consideration.
+- The Phase 3 market-data TTL and refresh strategy is now settled: a keyed in-memory cache with a
+  45s TTL for `/coins/markets` and 2-10 minute TTLs for the trade-page chart, sharing one
+  in-flight-dedupe registry — see [[market-data-cache-and-stale]] for the full decision.
 
 ## Consequences
 

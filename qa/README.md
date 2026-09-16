@@ -35,6 +35,13 @@ New reports follow the Defect Flow below and are filed at `qa/bugs/BUG-NNN-<slug
   delivered in Phase 2.
 - [`runs/RUN-2026-09-16-auth.md`](./runs/RUN-2026-09-16-auth.md) — the executed run report for
   the auth cases above: 24/24 pass, 0 bugs found, against a real temp instance of the app.
+- [`test-cases/markets.md`](./test-cases/markets.md) — 36 `TC-MKT-NNN` cases covering DATA-01..04
+  and MKT-01..05 (table contents/formatting, search, sort, auto-refresh, the 1D/7D/30D chart, the
+  stale-price degraded mode, attribution, and the API-key-exposure security case), delivered in
+  Phase 3.
+- [`runs/RUN-2026-09-16-markets.md`](./runs/RUN-2026-09-16-markets.md) — the executed run report
+  for the markets cases above: 35/36 pass, 1 Blocked (a documented automation-environment
+  limitation, not a defect), 0 bugs found, against a real temp instance of the app.
 
 ## Planned Folders
 
@@ -43,7 +50,7 @@ that implements the requirement they test. **Status: Planned.**
 
 | Folder | Contents | Naming convention |
 |--------|----------|--------------------|
-| `qa/test-cases/` (per feature not yet covered) | One Markdown file per feature area | `<FEATURE>.md`, e.g. `markets.md`, `wallet.md` |
+| `qa/test-cases/` (per feature not yet covered, e.g. `wallet.md`, `orders.md`) | One Markdown file per feature area | `<FEATURE>.md` |
 | `qa/runs/` (per feature not yet covered) | One execution report per test cycle | `RUN-YYYY-MM-DD-SCOPE.md` |
 
 ## Defect Flow

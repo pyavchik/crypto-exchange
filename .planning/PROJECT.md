@@ -66,6 +66,7 @@ A reviewer can open the live demo, place a trade, and then open the QA docs and 
 | Deploy on free hosting + public repo | Reviewers can click through ([wiki](../wiki/pages/decisions/free-hosting-public-repo.md)) | — Pending |
 | Request-ID JSON logs, lazy 5-min-cached `/health`, Markdown QA docs, public repo from day one | Traceable evidence for RCA; protect Demo call budget; reviewer-readable ([wiki](../wiki/pages/decisions/foundation-skeleton-conventions.md)) | — Pending (Phase 1) |
 | Scrypt password hashing, opaque session cookies, cookie-only identity, atomic 10k USDT grant | No native-addon build step; server-side revocation; no id-bearing endpoint to attack yet ([wiki](../wiki/pages/decisions/session-auth-model.md)) | — Pending (Phase 2) |
+| Keyed in-memory TTL cache + last-good stale fallback for market data; USD-upstream/USDT-display convention; verified Demo rate limits with the monthly-cap risk accepted and documented | `vs_currency=usdt` is rejected live, so USDT pairs are a display convention over USD prices; the cache/dedupe pattern protects the verified 100/min, 10k/mo Demo quota, and stale prices degrade honestly behind a dated banner rather than failing outright ([wiki](../wiki/pages/decisions/market-data-cache-and-stale.md)) | — Pending (Phase 3) |
 
 ## Evolution
 
