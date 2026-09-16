@@ -33,7 +33,7 @@ NOT in scope (later phases): markets data and the markets table (Phase 3), walle
 
 ### Isolation (AUTH-04)
 - **D-20:** The user's identity comes **only** from the session cookie. No endpoint in this phase accepts a user id from the client — not in a path, query or body. `GET /api/wallet` and `GET /api/me` are session-scoped by construction, which is the structural guarantee behind AUTH-04.
-- **D-21:** Auth middleware rejects unauthenticated requests with `401` and the Phase 1 error envelope (`{ error: { code, message, requestId } }`, D-09). Codes: `UNAUTHENTICATED` (no/invalid/expired session), `INVALID_CREDENTIALS`, `EMAIL_TAKEN`, `VALIDATION_FAILED`.
+- **D-21:** Auth middleware rejects unauthenticated requests with `401` and the Phase 1 error envelope (`{ error: { code, message, requestId } }`, D-09). Codes: `UNAUTHENTICATED` (no/invalid/expired session), `INVALID_CREDENTIALS`, `EMAIL_TAKEN`, `VALIDATION_ERROR`.
 - **D-22:** Because no id-bearing endpoint exists yet, the QA IDOR cases prove isolation by swapping session cookies between two live accounts and confirming each only ever sees its own data — and by recording that no id-parameterized route exists to attack. When Phases 4-5 add such routes, QA-04/QA-05 must add real IDOR cases against them.
 
 ### Accounts and the balance grant
