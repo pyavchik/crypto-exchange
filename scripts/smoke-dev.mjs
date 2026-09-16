@@ -16,7 +16,7 @@
 import { spawn } from "node:child_process";
 import { createServer as createHttpServer } from "node:http";
 import { createServer as createNetServer } from "node:net";
-import { mkdtempSync, readFileSync } from "node:fs";
+import { mkdtempSync, readFileSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -626,6 +626,16 @@ async function main() {
       }
     }
     stub.server.close();
+    // WR-02: tempDir's smoke.db now holds a real scrypt password hash and
+    // session token hash after every run (Phase 2's signup/login sections),
+    // not just placeholder rows — remove it on every exit path, success or
+    // failure. Swallow errors so a cleanup failure (e.g. a file locked by a
+    // process that didn't fully exit) never masks the actual smoke result.
+    try {
+      rmSync(tempDir, { recursive: true, force: true });
+    } catch {
+      // best-effort cleanup only
+    }
   }
 
   process.exit(exitCode);
