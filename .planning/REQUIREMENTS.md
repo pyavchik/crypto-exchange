@@ -27,7 +27,7 @@ Tracks: **FE** = frontend (React+TS), **BE** = backend (Node+TS, SQLite), **QA**
 - [ ] **AUTH-02** [FE+BE]: User can log in and stay logged in across browser refresh (httpOnly session cookie)
 - [ ] **AUTH-03** [FE+BE]: User can log out from any page
 - [ ] **AUTH-04** [BE]: A user can never read or modify another user's wallet, orders or trades (authorization enforced server-side)
-- [ ] **AUTH-05** [FE+BE]: New account is credited 10,000 USDT virtual balance exactly once
+- [x] **AUTH-05** [FE+BE]: New account is credited 10,000 USDT virtual balance exactly once
 
 ### Market Data (DATA)
 
@@ -138,7 +138,7 @@ Deferred. Tracked but not in current roadmap.
 | AUTH-02 | Phase 2 | Pending |
 | AUTH-03 | Phase 2 | Pending |
 | AUTH-04 | Phase 2 | Pending |
-| AUTH-05 | Phase 2 | Pending |
+| AUTH-05 | Phase 2 | Complete |
 | QA-02 | Phase 2 | Pending |
 | DATA-01 | Phase 3 | Pending |
 | DATA-02 | Phase 3 | Pending |

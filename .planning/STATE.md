@@ -2,18 +2,18 @@
 gsd_state_version: "1.0"
 current_phase: 2
 current_phase_name: Accounts
-current_plan: 2
+current_plan: 3
 status: executing
-stopped_at: "Completed 02-01-PLAN.md (sign-up tracer slice: schema, hashing, session, atomic grant, browser auth bootstrap, real-browser smoke proof)"
-last_updated: "2026-09-16T07:04:10.263Z"
+stopped_at: Completed 02-02-PLAN.md (login/logout/GET /api/wallet, per-field validation via AppError, isolation/exactly-once/expiry proofs)
+last_updated: "2026-09-16T07:16:51.881Z"
 last_activity: 2026-09-16
 last_activity_desc: Phase 01 complete, transitioned to Phase 2
-state_head: 48a50bb881c82bbf7141139a385c75a52fd182b2
+state_head: 5b9ac8271ed7238523fc1f7b52193d4a24271386
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 16
-  completed_plans: 12
+  completed_plans: 13
   percent: 14
 ---
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-09-15)
 ## Current Position
 
 Phase: 2 — Accounts
-Current Plan: 2
+Current Plan: 3
 Total Plans in Phase: 5
 Status: Ready to execute
 Last activity: 2026-09-16 — Plan 02-01 (sign-up tracer slice) complete
@@ -62,6 +62,7 @@ Progress: [█░░░░░░░░░] 14%
 | Phase 01 P10 | 25min | 3 tasks | 5 files |
 | Phase 01 P11 | ~20min | 2 tasks | 6 files |
 | Phase 02 P01 | 45min | 3 tasks | 24 files |
+| Phase 02 P02 | ~11min | 3 tasks | 9 files |
 
 ## Accumulated Context
 
@@ -87,6 +88,8 @@ Recent decisions affecting current work:
 - [Phase 2]: [Phase 02 P01]: Added AccountService.findById (not in the plan's interface contract) — GET /api/me only has request.userId from the session and needs the account's email by id, which findByEmail alone cannot resolve
 - [Phase 2]: [Phase 02 P01]: auth.test.ts written as auth.test.tsx — the file renders JSX (SignupView/WalletView/AppRoutes), which esbuild does not parse inside a .ts extension
 - [Phase 2]: [Phase 02 P01]: Filtered the smoke script's expected GET /api/me 401 console message (D-29's every-page auth bootstrap) by the failing request's own URL, not by message text, so an unrelated 401 elsewhere still fails npm run smoke
+- [Phase 02]: [Phase 02 P02]: Applied validateCredentials (including the 8-char minimum) to login as well as signup, not just the empty-email case named in the behavior block — rejecting a too-short password before account lookup keeps D-26's no-enumeration property and matches the plan's own 'used by both signup and login' instruction
+- [Phase 02]: [Phase 02 P02]: Password too-long rejection message is 'Password must be at most 200 characters' — Claude's Discretion, the interface contract's fixed strings only specify the minimum-length message
 
 ### Pending Todos
 
@@ -105,6 +108,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-09-16T07:04:10.203Z
-Stopped at: Completed 02-01-PLAN.md (sign-up tracer slice: schema, hashing, session, atomic grant, browser auth bootstrap, real-browser smoke proof)
+Last session: 2026-09-16T07:16:51.824Z
+Stopped at: Completed 02-02-PLAN.md (login/logout/GET /api/wallet, per-field validation via AppError, isolation/exactly-once/expiry proofs)
 Resume file: None
