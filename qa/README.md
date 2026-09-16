@@ -28,15 +28,23 @@ the headline deliverable of this portfolio project.
 
 New reports follow the Defect Flow below and are filed at `qa/bugs/BUG-NNN-<slug>.md`.
 
+## Test Cases and Runs
+
+- [`test-cases/auth.md`](./test-cases/auth.md) — 24 `TC-AUTH-NNN` cases covering AUTH-01..05
+  (positive, negative, boundary, security/isolation, and the exactly-once 10,000 USDT grant),
+  delivered in Phase 2.
+- [`runs/RUN-2026-09-16-auth.md`](./runs/RUN-2026-09-16-auth.md) — the executed run report for
+  the auth cases above: 24/24 pass, 0 bugs found, against a real temp instance of the app.
+
 ## Planned Folders
 
-These do not exist yet — they are created when their first file is written, starting in
-Phase 2. **Status: Planned.**
+Folders for features not yet delivered — created when their first file is written, in the phase
+that implements the requirement they test. **Status: Planned.**
 
 | Folder | Contents | Naming convention |
 |--------|----------|--------------------|
-| `qa/test-cases/` | One Markdown file per feature area | `<FEATURE>.md`, e.g. `auth.md` |
-| `qa/runs/` | One execution report per test cycle | `RUN-YYYY-MM-DD-SCOPE.md` |
+| `qa/test-cases/` (per feature not yet covered) | One Markdown file per feature area | `<FEATURE>.md`, e.g. `markets.md`, `wallet.md` |
+| `qa/runs/` (per feature not yet covered) | One execution report per test cycle | `RUN-YYYY-MM-DD-SCOPE.md` |
 
 ## Defect Flow
 

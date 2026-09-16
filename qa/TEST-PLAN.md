@@ -103,12 +103,21 @@ asserted as settled.
 | R-06 | Limit-order crossing boundary at exactly equal price (buy price == limit, sell price == limit) | Off-by-one crossing logic fills or fails to fill orders that should behave deterministically at the boundary | High | High | Boundary test cases at price == limit exactly, one tick above, one tick below | TRD-06 | 5 |
 | R-07 | Locked funds not released, or released incorrectly, on order cancel | User's funds appear permanently locked, or funds are released twice (double-credit) | Medium | High | Cancel-then-check-balance test cases; verify exact locked-amount arithmetic | TRD-05, TRD-07 | 5 |
 | R-08 | Concurrency / double-spend on double-click or parallel requests | Same funds spent twice across two near-simultaneous order placements or cancels | Medium | High | Parallel-request test cases (double-click simulation, concurrent API calls) against place/cancel/fill | TRD-08 | 5 |
-| R-09 | Cross-user data isolation failure (IDOR) | User A can read or modify User B's wallet, orders, or trades | Low | High | Security test cases: authenticated User A requesting User B's resource IDs directly | AUTH-04 | 2 |
-| R-10 | Session handling: session doesn't persist across refresh, or doesn't clear on logout | User is unexpectedly logged out mid-session, or a shared/public machine leaks a session after logout | Medium | Medium | Refresh-persistence and logout-clears-session test cases | AUTH-02, AUTH-03 | 2 |
+| R-09 | Cross-user data isolation failure (IDOR) | User A can read or modify User B's wallet, orders, or trades | Low | High | Security test cases: authenticated User A requesting User B's resource IDs directly — covered for Phase 2 by TC-AUTH-018/TC-AUTH-019 (cookie-swap isolation, unauthenticated 401) and the structural no-id-bearing-route observation TC-AUTH-022 (D-22: real object-reference cases must be added once Phases 4-5 introduce an id-bearing route) | AUTH-04 | 2 |
+| R-10 | Session handling: session doesn't persist across refresh, or doesn't clear on logout | User is unexpectedly logged out mid-session, or a shared/public machine leaks a session after logout | Medium | Medium | Refresh-persistence and logout-clears-session test cases — covered for Phase 2 by TC-AUTH-004 (refresh persistence), TC-AUTH-014 (7-day expiry boundary), TC-AUTH-015/TC-AUTH-016 (cookie attributes and JS-invisibility), TC-AUTH-020 (dead cookie rejected after logout) and TC-AUTH-021 (idempotent logout) | AUTH-02, AUTH-03 | 2 |
 | R-11 | API key exposure to the browser or in logs | CoinGecko Demo key leaked publicly (this repo is public), enabling key abuse or revocation | Low | High | Structural grep of bundled frontend code and log output for the key pattern; redaction unit test | DATA-01, FND-04 | 1 and 3 |
 | R-12 | Average-cost realized/unrealized P&L calculated incorrectly | Reviewer sees wrong profit/loss figures, undermining the whole trading-correctness story | Medium | High | Unit tests for average-cost method across buy/sell sequences; manual verification against hand-calculated expected P&L | ORD-03, ORD-04 | 5 |
 | R-13 | Request-ID traceability gaps that would block root-cause analysis | A bug report can't be linked back to a concrete log line, stalling RCA investigation | Low | Medium | Verify every error response and log line carries the same request ID end to end | FND-04, RCA-01 | 1 and 6 |
 | R-14 | Account reset has unintended side effects (partial clear, wrong balance after reset) | Reset leaves a user's account in an inconsistent state instead of a clean 10,000 USDT slate | Low | Medium | Reset-then-verify test cases: balance, open orders, and history all clear/reset correctly | WAL-04 | 4 |
+| R-15 | No login rate limiting / attempt throttling in v1 (D-31, deliberately deferred, not an oversight) | An attacker (or a buggy script) can fire unlimited `POST /api/login` attempts against any known email — credential-stuffing or password-guessing against a real account, whose live 10,000 USDT balance and trading activity an attacker could then read or place orders under | Medium | Medium | No test case in `qa/test-cases/auth.md` exercises throttling — none can, since no throttle exists yet. The hardening phase must add rate-limit test cases (expected 429 behavior, per-IP/per-account thresholds) alongside the implementation | AUTH-02 | 6 |
+
+**Observation on R-09/R-10 (D-26):** the login/signup error-message asymmetry that
+`qa/test-cases/auth.md` TC-AUTH-008/009/010 assert — signup names an existing email explicitly
+("That email is already registered"), while login returns one identical generic message for both
+an unknown email and a wrong password — is a deliberate, documented trade-off recorded in
+`wiki/pages/decisions/session-auth-model.md`, not an inconsistency between the two forms. Login
+must never become an account-enumeration oracle; signup, which already reveals existence by its
+nature, gains nothing from hiding it and loses a genuinely useful error message if it did.
 
 Open questions carried from `wiki/pages/concepts/order-rules.md`, deliberately left open rather
 than resolved by assumption — each will be settled in the phase that implements it and then
@@ -204,6 +213,17 @@ Phase 1 automated checks (verified to exist by plan 01-08):
 | MEM-01..04 | `scripts/wiki-lint.mjs` |
 | QA-01 | Review of this document |
 
+Phase 2 automated checks (verified to exist by plans 02-01..02-04), each paired with the manual
+case(s) in `qa/test-cases/auth.md` that cover the same requirement against the real running app:
+
+| Requirement | Automated check | Manual cases |
+|-------------|------------------|--------------|
+| AUTH-01 | `api/src/routes/auth.test.ts` (signup + per-field validation), `web/src/pages/Signup.test.tsx`, `scripts/smoke-dev.mjs` (real-browser signup) | TC-AUTH-001, 002, 006, 007, 011, 012 |
+| AUTH-02 | `api/src/routes/auth.test.ts` (login), `api/src/lib/session.test.ts` (7-day expiry boundary, lazy delete), `web/src/pages/Login.test.tsx`, `scripts/smoke-dev.mjs` (reload persistence, logout/login round trip) | TC-AUTH-003, 004, 009, 010, 013, 014, 015, 016 |
+| AUTH-03 | `api/src/routes/auth.test.ts` (logout idempotency), `web/src/App.test.tsx` (nav Log out control), `scripts/smoke-dev.mjs` (logout, blocked `/wallet`) | TC-AUTH-005, 020, 021 |
+| AUTH-04 | `api/src/routes/wallet.test.ts`, `api/src/routes/auth.test.ts` (cookie-swap isolation, forged-token rejection), `web/src/components/ProtectedRoute.test.tsx`, `scripts/smoke-dev.mjs` (guarded-route redirect) | TC-AUTH-017, 018, 019, 022 |
+| AUTH-05 | `api/src/lib/accounts.test.ts` (concurrent-duplicate-signup race, cascade delete), `scripts/smoke-dev.mjs` (exactly-once grant across a full logout/login round trip) | TC-AUTH-002, 023, 024 |
+
 ## Evidence and Defect Workflow
 
 The request-ID evidence thread ties a user-visible error to its root cause:
@@ -239,7 +259,8 @@ rates exist yet for any of them.
 | `.github/ISSUE_TEMPLATE/bug_report.md` | QA-01 | 1 | Done (Phase 1) |
 | Phase 1 automated checks (smoke incl. real-browser step, CI, health/logger tests, wiki lint) | FND-01..04, MEM-01..04 | 1 | Done (Phase 1) |
 | `qa/bugs/BUG-001-health-badge-api-unreachable.md` | FND-01 | 1 | Fixed (Phase 1), retest in UAT re-run |
-| Manual test cases — Auth | QA-02 | 2 | Planned (Phase 2) |
+| Manual test cases — Auth (`qa/test-cases/auth.md`) | QA-02 | 2 | Done (Phase 2) — 24 cases |
+| Run report — Auth (`qa/runs/RUN-2026-09-16-auth.md`) | QA-02 | 2 | Done (Phase 2) — 24/24 pass, 0 bugs found |
 | Manual test cases — Markets & Market Data | QA-03 | 3 | Planned (Phase 3) |
 | Manual test cases — Wallet & market orders | QA-04 | 4 | Planned (Phase 4) |
 | Manual test cases — Limit orders & history | QA-05 | 5 | Planned (Phase 5) |
