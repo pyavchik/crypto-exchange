@@ -3,17 +3,17 @@ gsd_state_version: "1.0"
 current_phase: 2
 current_phase_name: Accounts
 current_plan: 5
-status: executing
-stopped_at: Completed 02-04-PLAN.md (full browser auth journey, green repo, session-auth ADR)
-last_updated: "2026-09-16T07:56:49.160Z"
+status: verifying
+stopped_at: Completed 02-05-PLAN.md
+last_updated: "2026-09-16T08:12:57.239Z"
 last_activity: 2026-09-16
 last_activity_desc: Phase 01 complete, transitioned to Phase 2
-state_head: eea39a373b860cf8d3a2177b21fbb0550d65678d
+state_head: e57607397d80c682723b70d85cb0fb34d409ba0e
 progress:
   total_phases: 7
   completed_phases: 1
   total_plans: 16
-  completed_plans: 15
+  completed_plans: 16
   percent: 14
 ---
 
@@ -31,7 +31,7 @@ See: .planning/PROJECT.md (updated 2026-09-15)
 Phase: 2 — Accounts
 Current Plan: 5
 Total Plans in Phase: 5
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-09-16 — Plan 02-01 (sign-up tracer slice) complete
 
 Progress: [█░░░░░░░░░] 14%
@@ -65,6 +65,7 @@ Progress: [█░░░░░░░░░] 14%
 | Phase 02 P02 | ~11min | 3 tasks | 9 files |
 | Phase 02 P03 | ~15min | 3 tasks | 13 files |
 | Phase 02-accounts P04 | ~40min | 2 tasks | 6 files |
+| Phase 02-accounts P05 | ~20min | 3 tasks | 4 files |
 
 ## Accumulated Context
 
@@ -96,6 +97,9 @@ Recent decisions affecting current work:
 - [Phase 2]: [Phase 02 P03]: Added noValidate to both forms (not explicitly named in the plan) so the app's own per-field error messages render instead of the browser's native HTML5 validation UI intercepting submission first
 - [Phase 2]: [Phase 02 P04]: /wallet-after-logout guard check uses page.goto (full navigation) instead of a NavLink click — a client-side click raced handleLogout's own async navigate("/login") call and non-deterministically landed on /wallet
 - [Phase 2]: [Phase 02 P04]: Fixed a genuinely flaky password.test.ts assertion — scrypt re-derivation at a larger keylen reproduces the original bytes exactly, so a single fixed appended byte had a real 1-in-256 chance of coincidentally matching; widened to four bytes
+- [Phase 2]: Executed all 24 auth QA cases against one dedicated temp stack (ports 58611/58612), matching scripts/smoke-dev.mjs's own port/env pattern
+- [Phase 2]: TC-AUTH-008's written expectation corrected in place once execution showed EMAIL_TAKEN renders as a field-level error, not form-level
+- [Phase 2]: R-15 added to qa/TEST-PLAN.md risk register for the deferred login rate-limiting gap (D-31), owned by Phase 6 hardening
 
 ### Pending Todos
 
@@ -114,6 +118,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-09-16T07:56:49.096Z
-Stopped at: Completed 02-04-PLAN.md (full browser auth journey, green repo, session-auth ADR)
+Last session: 2026-09-16T08:12:57.175Z
+Stopped at: Completed 02-05-PLAN.md
 Resume file: None

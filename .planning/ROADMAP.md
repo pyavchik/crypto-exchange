@@ -76,7 +76,7 @@ Plans:
   3. A new user sees exactly 10,000 USDT; user A cannot fetch user B's data via the API
   4. Auth test cases are written, executed, and results recorded
 
-**Plans**: 4/5 plans executed
+**Plans**: 5/5 plans executed
 
 Plans:
 
@@ -84,7 +84,7 @@ Plans:
 - [x] 02-02-PLAN.md — BE: login, logout, wallet endpoint, per-field validation, isolation and exactly-once proofs
 - [x] 02-03-PLAN.md — FE: login screen, route guards, Log out on every page, inline field errors
 - [x] 02-04-PLAN.md — Integration: full real-browser auth journey in `npm run smoke`, repo green, wiki decision page
-- [ ] 02-05-PLAN.md — QA: auth test cases (incl. isolation/IDOR) + executed run report + test plan update
+- [x] 02-05-PLAN.md — QA: auth test cases (incl. isolation/IDOR) + executed run report + test plan update
 
 **Wave 1**
 
@@ -97,7 +97,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 02-04: Integration — browser journey, green repo, project memory
+- [x] 02-04: Integration — browser journey, green repo, project memory
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
@@ -222,7 +222,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation & Project Memory | 11/11 | Complete    | 2026-09-16 |
-| 2. Accounts | 4/5 | In Progress|  |
+| 2. Accounts | 5/5 | In Progress|  |
 | 3. Live Markets | 0/3 | Not started | - |
 | 4. Wallet & Market Orders | 0/4 | Not started | - |
 | 5. Limit Orders & History | 0/4 | Not started | - |
