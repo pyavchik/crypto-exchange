@@ -2,6 +2,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseEnv } from "node:util";
+import { MARKETS_TTL_MS } from "./lib/marketData.js";
 
 export interface AppConfig {
   port: number;
@@ -14,6 +15,7 @@ export interface AppConfig {
   logLevel: string;
   gitCommit: string;
   cookieSecure: boolean;
+  marketsTtlMs: number;
 }
 
 // api package root, resolved from this file's location (not process.cwd())
@@ -78,6 +80,23 @@ export function loadConfig(env: Record<string, string | undefined>): AppConfig {
   // local http development keeps working.
   const cookieSecure = env.NODE_ENV === "production";
 
+  // D-51: overridable markets cache lifetime, validated exactly the way PORT
+  // is validated above — throw rather than silently fall back to the
+  // default, so a test/smoke run that sets an invalid value fails loudly
+  // instead of quietly measuring the wrong TTL. Defaults to marketData.ts's
+  // own 45-second constant, so this file and that one never drift apart.
+  const rawMarketsTtlMs = env.MARKETS_TTL_MS ?? String(MARKETS_TTL_MS);
+  const marketsTtlMs = Number.parseInt(rawMarketsTtlMs, 10);
+  if (
+    !Number.isInteger(marketsTtlMs) ||
+    marketsTtlMs <= 0 ||
+    String(marketsTtlMs) !== rawMarketsTtlMs.trim()
+  ) {
+    throw new Error(
+      `Invalid MARKETS_TTL_MS: expected a positive integer, got "${rawMarketsTtlMs}"`,
+    );
+  }
+
   return {
     port,
     host,
@@ -89,5 +108,6 @@ export function loadConfig(env: Record<string, string | undefined>): AppConfig {
     logLevel,
     gitCommit,
     cookieSecure,
+    marketsTtlMs,
   };
 }

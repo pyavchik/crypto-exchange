@@ -1,15 +1,19 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  chartCacheKey,
+  CHART_TTL_MS,
   createMarketDataService,
   CURATED_LIMIT,
   MARKETS_TTL_MS,
   MarketDataUpstreamError,
   QUOTE_SYMBOL,
+  toChartPoints,
   toMarketPairs,
   UPSTREAM_PAGE_SIZE,
   VS_CURRENCY,
 } from "./marketData.js";
 import { createLogger } from "./logger.js";
+import { loadConfig } from "../config.js";
 
 const BASE_URL = "https://api.coingecko.com/api/v3";
 
@@ -304,5 +308,380 @@ describe("createMarketDataService", () => {
 
     const rawText = lines.join("\n");
     expect(rawText).not.toContain(apiKey);
+  });
+});
+
+describe("createMarketDataService — stale fallback (D-41/D-43)", () => {
+  async function expectStaleFallback(
+    secondResponse: () => Promise<Response>,
+    expectedReason: string,
+  ): Promise<void> {
+    let now = 1_700_000_000_000;
+    const { lines, log } = makeLogger();
+    const fixture = buildFixture();
+    let call = 0;
+    const fetchImpl = vi.fn(async () => {
+      call += 1;
+      if (call === 1) return new Response(JSON.stringify(fixture), { status: 200 });
+      return secondResponse();
+    }) as unknown as typeof fetch;
+    const service = createMarketDataService({
+      apiKey: "key",
+      baseUrl: BASE_URL,
+      fetchImpl,
+      now: () => now,
+    });
+
+    const first = await service.getMarkets({ requestId: "req-1", log });
+    expect(first.stale).toBe(false);
+
+    now += MARKETS_TTL_MS;
+    const second = await service.getMarkets({ requestId: "req-2", log });
+
+    expect(second.stale).toBe(true);
+    expect(second.fetchedAt).toBe(first.fetchedAt);
+    expect(second.pairs).toEqual(first.pairs);
+
+    const parsed = parseLines(lines);
+    const staleLines = parsed.filter((entry) => entry.msg === "serving stale market data");
+    expect(staleLines).toHaveLength(1);
+    expect(staleLines[0]).toMatchObject({
+      resource: "markets",
+      reason: expectedReason,
+      requestId: "req-2",
+    });
+    expect(typeof staleLines[0]?.ageMs).toBe("number");
+  }
+
+  it("falls back to the previous pairs with reason http_429 on a 429", () =>
+    expectStaleFallback(async () => new Response(null, { status: 429 }), "http_429"));
+
+  it("falls back to the previous pairs with reason http_503 on a 503", () =>
+    expectStaleFallback(async () => new Response(null, { status: 503 }), "http_503"));
+
+  it("falls back to the previous pairs with reason malformed_body on a body failing validation", () =>
+    expectStaleFallback(
+      async () => new Response(JSON.stringify({ not: "an array" }), { status: 200 }),
+      "malformed_body",
+    ));
+
+  it("falls back to the previous pairs with reason timeout on an upstream timeout", () =>
+    expectStaleFallback(async () => {
+      throw Object.assign(new Error("timed out"), { name: "TimeoutError" });
+    }, "timeout"));
+
+  it("rejects with the D-09 502 UPSTREAM_UNAVAILABLE envelope and logs no stale line when nothing has ever been cached", async () => {
+    const { lines, log } = makeLogger();
+    const fetchImpl = vi.fn(
+      async () => new Response(null, { status: 503 }),
+    ) as unknown as typeof fetch;
+    const service = createMarketDataService({ apiKey: "key", baseUrl: BASE_URL, fetchImpl });
+
+    await expect(service.getMarkets({ requestId: "req-1", log })).rejects.toMatchObject({
+      statusCode: 502,
+      code: "UPSTREAM_UNAVAILABLE",
+    });
+
+    const parsed = parseLines(lines);
+    expect(parsed.some((entry) => entry.msg === "serving stale market data")).toBe(false);
+  });
+});
+
+describe("loadConfig — MARKETS_TTL_MS (D-51)", () => {
+  it("defaults to 45000 milliseconds when MARKETS_TTL_MS is absent", () => {
+    expect(loadConfig({}).marketsTtlMs).toBe(45_000);
+  });
+
+  it("reads an explicit MARKETS_TTL_MS override", () => {
+    expect(loadConfig({ MARKETS_TTL_MS: "2000" }).marketsTtlMs).toBe(2000);
+  });
+
+  it("throws on a non-integer or non-positive MARKETS_TTL_MS, the same way an invalid PORT throws", () => {
+    expect(() => loadConfig({ MARKETS_TTL_MS: "not-a-number" })).toThrow(/MARKETS_TTL_MS/);
+    expect(() => loadConfig({ MARKETS_TTL_MS: "0" })).toThrow(/MARKETS_TTL_MS/);
+    expect(() => loadConfig({ MARKETS_TTL_MS: "-5" })).toThrow(/MARKETS_TTL_MS/);
+  });
+});
+
+describe("createMarketDataService — marketsTtlMs override", () => {
+  it("uses an explicit cache lifetime in place of the module default", async () => {
+    let now = 1_700_000_000_000;
+    const { log } = makeLogger();
+    const fixture = buildFixture();
+    const fetchImpl = vi.fn(
+      async () => new Response(JSON.stringify(fixture), { status: 200 }),
+    ) as unknown as typeof fetch;
+    const service = createMarketDataService({
+      apiKey: "key",
+      baseUrl: BASE_URL,
+      fetchImpl,
+      now: () => now,
+      marketsTtlMs: 2_000,
+    });
+
+    await service.getMarkets({ requestId: "req-1", log });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+
+    now += 1_999;
+    await service.getMarkets({ requestId: "req-2", log });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+
+    now += 1;
+    await service.getMarkets({ requestId: "req-3", log });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+});
+
+// Live-shaped /coins/{id}/market_chart fixture builder: prices is an array
+// of [ms_timestamp, value] pairs, chronologically ascending, matching
+// 03-RESEARCH.md's live capture.
+function buildChartFixture(count: number, startMs: number, stepMs: number): unknown {
+  const prices: [number, number][] = [];
+  for (let i = 0; i < count; i += 1) {
+    prices.push([startMs + i * stepMs, 100 + i]);
+  }
+  return { prices, market_caps: [], total_volumes: [] };
+}
+
+describe("toChartPoints", () => {
+  it("converts millisecond timestamps to whole-second time values", () => {
+    const points = toChartPoints({
+      prices: [
+        [1_700_000_000_123, 100],
+        [1_700_000_060_456, 101],
+      ],
+    });
+
+    expect(points).toEqual([
+      { time: Math.floor(1_700_000_000_123 / 1000), value: 100 },
+      { time: Math.floor(1_700_000_060_456 / 1000), value: 101 },
+    ]);
+  });
+
+  it("drops a point whose converted time does not strictly exceed the previous kept point's", () => {
+    const points = toChartPoints({
+      prices: [
+        [1_700_000_000_000, 100],
+        [1_700_000_000_500, 101], // rounds into the same second as the previous point
+        [1_700_000_001_000, 102],
+      ],
+    });
+
+    expect(points).toEqual([
+      { time: 1_700_000_000, value: 100 },
+      { time: 1_700_000_001, value: 102 },
+    ]);
+  });
+
+  it("drops a point whose value is not a finite number", () => {
+    const points = toChartPoints({
+      prices: [
+        [1_700_000_000_000, 100],
+        [1_700_000_001_000, Number.NaN],
+        [1_700_000_002_000, 102],
+      ],
+    });
+
+    expect(points).toEqual([
+      { time: 1_700_000_000, value: 100 },
+      { time: 1_700_000_002, value: 102 },
+    ]);
+  });
+
+  it("throws when the body has no prices array", () => {
+    expect(() => toChartPoints({})).toThrow();
+    expect(() => toChartPoints(null)).toThrow();
+  });
+
+  it("throws when the prices array is empty", () => {
+    expect(() => toChartPoints({ prices: [] })).toThrow();
+  });
+
+  it("throws when every point is dropped", () => {
+    expect(() => toChartPoints({ prices: [[1_700_000_000_000, Number.NaN]] })).toThrow();
+  });
+});
+
+describe("chartCacheKey", () => {
+  it("is distinct per coin and per window", () => {
+    expect(chartCacheKey("bitcoin", "7d")).not.toBe(chartCacheKey("bitcoin", "1d"));
+    expect(chartCacheKey("bitcoin", "7d")).not.toBe(chartCacheKey("ethereum", "7d"));
+  });
+});
+
+describe("createMarketDataService — getChart", () => {
+  it("issues two upstream calls for two different coins requested concurrently", async () => {
+    const { log } = makeLogger();
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response(JSON.stringify(buildChartFixture(5, 1_700_000_000_000, 3_600_000)), {
+          status: 200,
+        }),
+    ) as unknown as typeof fetch;
+    const service = createMarketDataService({ apiKey: "key", baseUrl: BASE_URL, fetchImpl });
+
+    const [btc, eth] = await Promise.all([
+      service.getChart("bitcoin", "7d", { requestId: "req-1", log }),
+      service.getChart("ethereum", "7d", { requestId: "req-2", log }),
+    ]);
+
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+    expect(btc.id).toBe("bitcoin");
+    expect(eth.id).toBe("ethereum");
+  });
+
+  it("dedupes five concurrent requests for the same coin and window into a single upstream call", async () => {
+    const { log } = makeLogger();
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response(JSON.stringify(buildChartFixture(5, 1_700_000_000_000, 3_600_000)), {
+          status: 200,
+        }),
+    ) as unknown as typeof fetch;
+    const service = createMarketDataService({ apiKey: "key", baseUrl: BASE_URL, fetchImpl });
+
+    const results = await Promise.all(
+      Array.from({ length: 5 }, () =>
+        service.getChart("bitcoin", "7d", { requestId: "req-1", log }),
+      ),
+    );
+
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    for (const result of results) {
+      expect(result).toEqual(results[0]);
+    }
+  });
+
+  it("serves the 1d window from cache 119 seconds later and refetches 121 seconds later", async () => {
+    let now = 1_700_000_000_000;
+    const { log } = makeLogger();
+    const fetchImpl = vi.fn(
+      async () => new Response(JSON.stringify(buildChartFixture(5, now, 60_000)), { status: 200 }),
+    ) as unknown as typeof fetch;
+    const service = createMarketDataService({
+      apiKey: "key",
+      baseUrl: BASE_URL,
+      fetchImpl,
+      now: () => now,
+    });
+
+    await service.getChart("bitcoin", "1d", { requestId: "req-1", log });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+
+    now += 119_000;
+    await service.getChart("bitcoin", "1d", { requestId: "req-2", log });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+
+    now += 2_000; // 121s total
+    await service.getChart("bitcoin", "1d", { requestId: "req-3", log });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+
+  it("serves the 7d and 30d windows from cache just under 10 minutes later and refetches past 10 minutes", async () => {
+    let now = 1_700_000_000_000;
+    const { log } = makeLogger();
+    const fetchImpl = vi.fn(
+      async () => new Response(JSON.stringify(buildChartFixture(5, now, 60_000)), { status: 200 }),
+    ) as unknown as typeof fetch;
+    const service = createMarketDataService({
+      apiKey: "key",
+      baseUrl: BASE_URL,
+      fetchImpl,
+      now: () => now,
+    });
+
+    for (const window of ["7d", "30d"] as const) {
+      await service.getChart("bitcoin", window, { requestId: "req-1", log });
+    }
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+
+    now += 600_000 - 1_000;
+    for (const window of ["7d", "30d"] as const) {
+      await service.getChart("bitcoin", window, { requestId: "req-2", log });
+    }
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+
+    now += 1_000;
+    for (const window of ["7d", "30d"] as const) {
+      await service.getChart("bitcoin", window, { requestId: "req-3", log });
+    }
+    expect(fetchImpl).toHaveBeenCalledTimes(4);
+  });
+
+  it("requests the dollar currency code and the day count matching the window, with no granularity option", async () => {
+    const { log } = makeLogger();
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response(JSON.stringify(buildChartFixture(5, 1_700_000_000_000, 3_600_000)), {
+          status: 200,
+        }),
+    ) as unknown as typeof fetch;
+    const service = createMarketDataService({ apiKey: "key", baseUrl: BASE_URL, fetchImpl });
+
+    await service.getChart("bitcoin", "7d", { requestId: "req-1", log });
+
+    const [calledUrl] = (fetchImpl as unknown as { mock: { calls: [string, RequestInit][] } }).mock
+      .calls[0]!;
+    expect(calledUrl).toContain(`vs_currency=${VS_CURRENCY}`);
+    expect(calledUrl).toContain("days=7");
+    expect(calledUrl).not.toContain("interval=");
+  });
+
+  it("sends the Demo key as a request header when configured and no key header when null", async () => {
+    const { log } = makeLogger();
+    const fetchImpl = vi.fn(
+      async () =>
+        new Response(JSON.stringify(buildChartFixture(5, 1_700_000_000_000, 3_600_000)), {
+          status: 200,
+        }),
+    ) as unknown as typeof fetch;
+
+    const keyed = createMarketDataService({ apiKey: "secret-key", baseUrl: BASE_URL, fetchImpl });
+    await keyed.getChart("bitcoin", "1d", { requestId: "req-1", log });
+    const [, keyedOptions] = (fetchImpl as unknown as { mock: { calls: [string, RequestInit][] } })
+      .mock.calls[0]!;
+    expect((keyedOptions.headers as Record<string, string>)["x-cg-demo-api-key"]).toBe(
+      "secret-key",
+    );
+
+    const keyless = createMarketDataService({ apiKey: null, baseUrl: BASE_URL, fetchImpl });
+    await keyless.getChart("bitcoin", "1d", { requestId: "req-2", log });
+    const [, keylessOptions] = (
+      fetchImpl as unknown as { mock: { calls: [string, RequestInit][] } }
+    ).mock.calls[1]!;
+    expect((keylessOptions.headers as Record<string, string>)["x-cg-demo-api-key"]).toBeUndefined();
+  });
+
+  it("falls back to the previously cached series with stale: true and its original fetchedAt on upstream failure, and logs one stale line naming the chart resource key", async () => {
+    let now = 1_700_000_000_000;
+    const { lines, log } = makeLogger();
+    let call = 0;
+    const fetchImpl = vi.fn(async () => {
+      call += 1;
+      if (call === 1) {
+        return new Response(JSON.stringify(buildChartFixture(5, now, 3_600_000)), { status: 200 });
+      }
+      return new Response(null, { status: 503 });
+    }) as unknown as typeof fetch;
+    const service = createMarketDataService({
+      apiKey: "key",
+      baseUrl: BASE_URL,
+      fetchImpl,
+      now: () => now,
+    });
+
+    const first = await service.getChart("bitcoin", "1d", { requestId: "req-1", log });
+    now += CHART_TTL_MS["1d"];
+    const second = await service.getChart("bitcoin", "1d", { requestId: "req-2", log });
+
+    expect(second.stale).toBe(true);
+    expect(second.fetchedAt).toBe(first.fetchedAt);
+    expect(second.points).toEqual(first.points);
+
+    const parsed = parseLines(lines);
+    const staleLines = parsed.filter((entry) => entry.msg === "serving stale market data");
+    expect(staleLines).toHaveLength(1);
+    expect(staleLines[0]?.resource).toBe(chartCacheKey("bitcoin", "1d"));
+    expect(staleLines[0]?.reason).toBe("http_503");
   });
 });

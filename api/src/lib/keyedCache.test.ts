@@ -136,3 +136,99 @@ describe("createKeyedCache", () => {
     expect(cache.peek("key")).toEqual({ value: "value", fetchedAt: now });
   });
 });
+
+describe("createKeyedCache — stale fallback (D-41/D-43)", () => {
+  it("falls back to the expired entry's value and original fetchedAt when the fetcher rejects, calling onStale exactly once with the key, reason and age", async () => {
+    let now = 1_700_000_000_000;
+    const cache = createKeyedCache<string>({ now: () => now });
+    await cache.resolve("key", 1_000, async () => "good-value");
+    const originalFetchedAt = now;
+
+    now += 1_001; // past the TTL
+    const failing = vi.fn(async () => {
+      throw Object.assign(new Error("upstream down"), { reason: "http_503" });
+    });
+    const onStale = vi.fn();
+
+    const result = await cache.resolve("key", 1_000, failing, { onStale });
+
+    expect(result).toEqual({ value: "good-value", fetchedAt: originalFetchedAt, stale: true });
+    expect(onStale).toHaveBeenCalledTimes(1);
+    expect(onStale).toHaveBeenCalledWith("key", "http_503", 1_001);
+  });
+
+  it("rejects with the fetcher's own error and never calls onStale when nothing has ever been cached", async () => {
+    const cache = createKeyedCache<string>();
+    const onStale = vi.fn();
+    const error = new Error("cold start failure");
+    const failing = vi.fn(async () => {
+      throw error;
+    });
+
+    await expect(cache.resolve("key", 1_000, failing, { onStale })).rejects.toBe(error);
+    expect(onStale).not.toHaveBeenCalled();
+    expect(cache.peek("key")).toBeUndefined();
+  });
+
+  it("retries the upstream on the very next resolve call after a stale serve, since fetchedAt is left unchanged", async () => {
+    let now = 1_700_000_000_000;
+    const cache = createKeyedCache<string>({ now: () => now });
+    await cache.resolve("key", 1_000, async () => "good-value");
+
+    now += 1_001;
+    const firstFailure = vi.fn(async () => {
+      throw new Error("down");
+    });
+    await cache.resolve("key", 1_000, firstFailure);
+    expect(firstFailure).toHaveBeenCalledTimes(1);
+
+    const secondFailure = vi.fn(async () => {
+      throw new Error("still down");
+    });
+    await cache.resolve("key", 1_000, secondFailure);
+    expect(secondFailure).toHaveBeenCalledTimes(1);
+  });
+
+  it("returns stale: false with a new fetchedAt once the fetcher succeeds again after a stale serve", async () => {
+    let now = 1_700_000_000_000;
+    const cache = createKeyedCache<string>({ now: () => now });
+    await cache.resolve("key", 1_000, async () => "v1");
+
+    now += 1_001;
+    await cache.resolve("key", 1_000, async () => {
+      throw new Error("down");
+    });
+
+    now += 10;
+    const result = await cache.resolve("key", 1_000, async () => "v2");
+    expect(result).toEqual({ value: "v2", fetchedAt: now, stale: false });
+  });
+
+  it("serves the same stale result to concurrent callers during an upstream failure, invoking the fetcher exactly once and onStale exactly once", async () => {
+    let now = 1_700_000_000_000;
+    const cache = createKeyedCache<string>({ now: () => now });
+    await cache.resolve("key", 1_000, async () => "good-value");
+    const originalFetchedAt = now;
+
+    now += 1_001;
+    let calls = 0;
+    const failing = vi.fn(
+      () =>
+        new Promise<string>((_resolve, reject) => {
+          calls += 1;
+          setTimeout(() => reject(new Error("down")), 20);
+        }),
+    );
+    const onStale = vi.fn();
+
+    const results = await Promise.all(
+      Array.from({ length: 5 }, () => cache.resolve("key", 1_000, failing, { onStale })),
+    );
+
+    expect(calls).toBe(1);
+    for (const result of results) {
+      expect(result).toEqual({ value: "good-value", fetchedAt: originalFetchedAt, stale: true });
+    }
+    expect(onStale).toHaveBeenCalledTimes(1);
+  });
+});

@@ -145,6 +145,7 @@ export async function buildApp(deps: AppDeps): Promise<FastifyInstance> {
     baseUrl: deps.config.coingeckoBaseUrl,
     fetchImpl: deps.fetchImpl,
     now: deps.now,
+    marketsTtlMs: deps.config.marketsTtlMs,
   });
 
   await app.register(marketsRoutes, { marketData });
