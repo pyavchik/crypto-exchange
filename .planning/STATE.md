@@ -2,17 +2,18 @@
 gsd_state_version: "1.0"
 current_phase: 2
 current_phase_name: Accounts
-status: planning
-stopped_at: Phase 01 complete, ready to plan Phase 2
-last_updated: "2026-09-16T06:04:12.867Z"
+current_plan: 2
+status: executing
+stopped_at: "Completed 02-01-PLAN.md (sign-up tracer slice: schema, hashing, session, atomic grant, browser auth bootstrap, real-browser smoke proof)"
+last_updated: "2026-09-16T07:04:10.263Z"
 last_activity: 2026-09-16
 last_activity_desc: Phase 01 complete, transitioned to Phase 2
-state_head: a9a3f236d32b98ffa34f18c4c289d18147b72044
+state_head: 48a50bb881c82bbf7141139a385c75a52fd182b2
 progress:
   total_phases: 7
   completed_phases: 1
-  total_plans: 11
-  completed_plans: 11
+  total_plans: 16
+  completed_plans: 12
   percent: 14
 ---
 
@@ -28,9 +29,10 @@ See: .planning/PROJECT.md (updated 2026-09-15)
 ## Current Position
 
 Phase: 2 — Accounts
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-09-16 — Phase 01 complete, transitioned to Phase 2
+Current Plan: 2
+Total Plans in Phase: 5
+Status: Ready to execute
+Last activity: 2026-09-16 — Plan 02-01 (sign-up tracer slice) complete
 
 Progress: [█░░░░░░░░░] 14%
 
@@ -59,6 +61,7 @@ Progress: [█░░░░░░░░░] 14%
 | Phase 01 P09 | 35min | 2 tasks | 4 files |
 | Phase 01 P10 | 25min | 3 tasks | 5 files |
 | Phase 01 P11 | ~20min | 2 tasks | 6 files |
+| Phase 02 P01 | 45min | 3 tasks | 24 files |
 
 ## Accumulated Context
 
@@ -81,6 +84,9 @@ Recent decisions affecting current work:
 - [Phase 01]: playwright-core@1.63.0 root devDependency only, channel:"chrome" against installed Chrome (never bundled Chromium, unsupported on this mac13 machine); real-time (not fake-clock) 60s poll wait in the smoke script's browser step — Closes UAT gaps G-01-2/G-01-3/G-01-4; mutation-tested (7e14902) proof the check catches BUG-001; matches Phase 6's eventual Playwright TS e2e suite
 - [Phase 01]: docs(01-11) used for both task commits since the plan changes only qa/ and wiki/ documentation, no application code
 - [Phase 01]: BUG-001's Environment field sources the Chrome version from 01-10-SUMMARY.md and the macOS version from a fresh sw_vers call, per the plan's explicit field-value instructions
+- [Phase 2]: [Phase 02 P01]: Added AccountService.findById (not in the plan's interface contract) — GET /api/me only has request.userId from the session and needs the account's email by id, which findByEmail alone cannot resolve
+- [Phase 2]: [Phase 02 P01]: auth.test.ts written as auth.test.tsx — the file renders JSX (SignupView/WalletView/AppRoutes), which esbuild does not parse inside a .ts extension
+- [Phase 2]: [Phase 02 P01]: Filtered the smoke script's expected GET /api/me 401 console message (D-29's every-page auth bootstrap) by the failing request's own URL, not by message text, so an unrelated 401 elsewhere still fails npm run smoke
 
 ### Pending Todos
 
@@ -99,6 +105,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-09-16T05:47:05.398Z
-Stopped at: Phase 01 complete, ready to plan Phase 2
+Last session: 2026-09-16T07:04:10.203Z
+Stopped at: Completed 02-01-PLAN.md (sign-up tracer slice: schema, hashing, session, atomic grant, browser auth bootstrap, real-browser smoke proof)
 Resume file: None
