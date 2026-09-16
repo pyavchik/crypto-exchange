@@ -12,7 +12,7 @@ Build a Binance-style paper-trading exchange as vertical slices — every featur
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
 - [x] **Phase 1: Foundation & Project Memory** - Monorepo, CI, health + structured logs, LLM Wiki, test strategy (completed 2026-09-16)
-- [ ] **Phase 2: Accounts** - Sign up / login / logout, per-user isolation, 10k USDT grant
+- [x] **Phase 2: Accounts** - Sign up / login / logout, per-user isolation, 10k USDT grant (completed 2026-09-16)
 - [ ] **Phase 3: Live Markets** - CoinGecko proxy + cache + stale handling, markets table, trade page chart
 - [ ] **Phase 4: Wallet & Market Orders** - Balances, decimal-safe market buy/sell with fees and validation
 - [ ] **Phase 5: Limit Orders & History** - Limit orders with locked funds, fill-on-cross, cancel, order/trade history, P&L
@@ -101,7 +101,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 02-05: QA — write and execute the auth cases, file the run report
+- [x] 02-05: QA — write and execute the auth cases, file the run report
 
 ### Phase 3: Live Markets
 
@@ -222,7 +222,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation & Project Memory | 11/11 | Complete    | 2026-09-16 |
-| 2. Accounts | 5/5 | In Progress|  |
+| 2. Accounts | 5/5 | Complete    | 2026-09-16 |
 | 3. Live Markets | 0/3 | Not started | - |
 | 4. Wallet & Market Orders | 0/4 | Not started | - |
 | 5. Limit Orders & History | 0/4 | Not started | - |
