@@ -87,7 +87,11 @@ function validateCredentials(input: { email: string; password: string }): Record
   const fields: Record<string, string> = {};
 
   const trimmedEmail = input.email.trim();
-  if (trimmedEmail.length === 0 || trimmedEmail.length > EMAIL_MAX_LEN || !EMAIL_RE.test(trimmedEmail)) {
+  if (
+    trimmedEmail.length === 0 ||
+    trimmedEmail.length > EMAIL_MAX_LEN ||
+    !EMAIL_RE.test(trimmedEmail)
+  ) {
     fields.email = "Enter a valid email address";
   }
 
@@ -177,7 +181,10 @@ const authRoutes: FastifyPluginCallback<AuthRoutesOptions> = (app: FastifyInstan
       // T-02-10: always run a verification pass, even when no account
       // matches, so an unknown email and a wrong password take comparable
       // time — see DUMMY_PASSWORD_HASH above.
-      const passwordValid = await verifyPassword(password, account?.passwordHash ?? DUMMY_PASSWORD_HASH);
+      const passwordValid = await verifyPassword(
+        password,
+        account?.passwordHash ?? DUMMY_PASSWORD_HASH,
+      );
 
       if (!account || !passwordValid) {
         // D-26: one identical message, status and code for both failure

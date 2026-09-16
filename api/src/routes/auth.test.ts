@@ -348,6 +348,27 @@ describe("GET /api/me", () => {
 
     await app.close();
   });
+
+  it("AUTH-04: cookie-swap isolation — each session returns only its own account, and a forged token returns 401", async () => {
+    const { app } = await buildTestApp();
+    const tokenA = await signupAndLogin(app, "isoa@example.com");
+    const tokenB = await signupAndLogin(app, "isob@example.com");
+
+    const meAsA = await app.inject({ method: "GET", url: "/api/me", cookies: { session: tokenA } });
+    const meAsB = await app.inject({ method: "GET", url: "/api/me", cookies: { session: tokenB } });
+    expect(meAsA.json().email).toBe("isoa@example.com");
+    expect(meAsB.json().email).toBe("isob@example.com"); // never isoa@example.com — D-20's isolation
+
+    const forged = await app.inject({
+      method: "GET",
+      url: "/api/me",
+      cookies: { session: "a-token-that-was-never-issued" },
+    });
+    expect(forged.statusCode).toBe(401);
+    expect(forged.json().error.code).toBe("UNAUTHENTICATED");
+
+    await app.close();
+  });
 });
 
 describe("POST /api/login", () => {

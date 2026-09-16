@@ -68,4 +68,37 @@ describe("GET /api/wallet", () => {
 
     await app.close();
   });
+
+  it("AUTH-04: two live accounts each get 200 on their own cookie, and a forged token returns 401", async () => {
+    const { app } = await buildTestApp();
+    const tokenA = await signupAndLogin(app, "walletiso-a@example.com");
+    const tokenB = await signupAndLogin(app, "walletiso-b@example.com");
+
+    // D-22: no endpoint in this phase takes an id parameter, so the swap
+    // attack here is exhausted by the forged-token case below — GET
+    // /api/me (auth.test.ts) is where per-account content (the email)
+    // actually differs and proves the cookie->account mapping.
+    const walletA = await app.inject({
+      method: "GET",
+      url: "/api/wallet",
+      cookies: { session: tokenA },
+    });
+    const walletB = await app.inject({
+      method: "GET",
+      url: "/api/wallet",
+      cookies: { session: tokenB },
+    });
+    expect(walletA.statusCode).toBe(200);
+    expect(walletB.statusCode).toBe(200);
+
+    const forged = await app.inject({
+      method: "GET",
+      url: "/api/wallet",
+      cookies: { session: "a-token-that-was-never-issued" },
+    });
+    expect(forged.statusCode).toBe(401);
+    expect(forged.json().error.code).toBe("UNAUTHENTICATED");
+
+    await app.close();
+  });
 });
