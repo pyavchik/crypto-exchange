@@ -76,13 +76,32 @@ Plans:
   3. A new user sees exactly 10,000 USDT; user A cannot fetch user B's data via the API
   4. Auth test cases are written, executed, and results recorded
 
-**Plans**: 3 plans
+**Plans**: 5 plans
 
 Plans:
 
-- [ ] 02-01: BE — Users table, password hashing, session cookie, auth middleware, balance grant
-- [ ] 02-02: FE — Sign up / login / logout screens, protected routes, error states
-- [ ] 02-03: QA — Auth test cases (incl. isolation/IDOR checks) + execution report
+- [ ] 02-01-PLAN.md — Tracer: sign up in a real browser and land on a funded wallet (schema, scrypt, session cookie, atomic 10k grant, auth bootstrap, smoke proof)
+- [ ] 02-02-PLAN.md — BE: login, logout, wallet endpoint, per-field validation, isolation and exactly-once proofs
+- [ ] 02-03-PLAN.md — FE: login screen, route guards, Log out on every page, inline field errors
+- [ ] 02-04-PLAN.md — Integration: full real-browser auth journey in `npm run smoke`, repo green, wiki decision page
+- [ ] 02-05-PLAN.md — QA: auth test cases (incl. isolation/IDOR) + executed run report + test plan update
+
+**Wave 1**
+
+- [ ] 02-01: Tracer — one vertical signup slice wired through every layer and proven in Chrome
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 02-02: BE — account lifecycle, validation, isolation and exactly-once proofs
+- [ ] 02-03: FE — login, guards, logout control, inline errors *(parallel with 02-02, no shared files)*
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 02-04: Integration — browser journey, green repo, project memory
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 02-05: QA — write and execute the auth cases, file the run report
 
 ### Phase 3: Live Markets
 
@@ -203,7 +222,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation & Project Memory | 11/11 | Complete    | 2026-09-16 |
-| 2. Accounts | 0/3 | Not started | - |
+| 2. Accounts | 0/5 | Not started | - |
 | 3. Live Markets | 0/3 | Not started | - |
 | 4. Wallet & Market Orders | 0/4 | Not started | - |
 | 5. Limit Orders & History | 0/4 | Not started | - |
