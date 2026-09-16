@@ -31,3 +31,4 @@ Conventions: [SCHEMA.md](SCHEMA.md) · Log: [log.md](log.md)
 
 ## Findings
 - [Health badge always shows "API unreachable"](pages/findings/health-poller-illegal-invocation.md) — unbound `timers.setTimeout` throws Illegal invocation in browsers; Node tests miss it
+- [verifyPassword authenticated any password against a malformed stored hash](pages/findings/verify-password-fail-open.md) — `Buffer.from(hex)` silently truncates invalid hex; fail-open via zero-length `timingSafeEqual`, not caught by reading, only by execution
