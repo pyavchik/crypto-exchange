@@ -2,7 +2,7 @@
 
 **Project:** CoinGecko Paper Exchange (Railsware Senior QA Engineer portfolio project)
 **Document owner:** QA (pyavchik)
-**Last updated:** 2026-09-15
+**Last updated:** 2026-09-16
 **Status:** Living document — updated at every phase boundary as scope is delivered
 
 ## Purpose
@@ -67,11 +67,20 @@ Deferred to v2 (tracked in `.planning/REQUIREMENTS.md`, not in the current roadm
 |-------|------|-----------|-------|
 | Unit tests | Vitest (api + web workspaces) | Phase 1 | Fast, colocated with source; order math, decimal precision and logger redaction get dedicated unit coverage in Phase 4 (AUT-04) |
 | Full-stack smoke | `npm run smoke` (`scripts/smoke-dev.mjs`) | Phase 1 | Runs the real `npm run dev`, proves the whole web -> API -> SQLite -> CoinGecko -> logs path end to end |
+| Real-browser smoke | The `npm run smoke` browser step in `scripts/smoke-dev.mjs`, using `playwright-core` to drive installed Google Chrome headless | Phase 1 | Badge reads API ok / CoinGecko status with zero page or console errors; 60 s visible poll timing; outage and recovery through Re-check; real timers, no fake clock |
 | Manual scripted test cases | `qa/test-cases/<feature>.md` per feature | Phases 2-5 | One table per feature area, written against that phase's requirements before or during implementation, executed and reported per cycle |
 | API test collection | Bruno or Postman | Phase 6 | Covers every backend endpoint, auth, and negative cases; runnable in CI |
 | Automated e2e smoke | Playwright (TypeScript), with network mocking for 429/stale scenarios | Phase 6 | Sign up -> market buy -> limit order -> cancel -> verify balances; deterministic upstream failure simulation |
 | Exploratory testing + UX review | Charter-based session notes | Phase 6 | Time-boxed charters against the trading flow; a separate usability review pass |
 | Release and post-release checklists | Manual checklist | Phase 7 | Run once before and once after the production deploy |
+
+Why the real-browser smoke exists from Phase 1: `qa/bugs/BUG-001-health-badge-api-unreachable.md`
+passed the Node-environment unit tests and the fetch-only full-stack smoke because Node does not
+enforce browser host-object rules (the WebIDL receiver check that a real browser applies to
+native timer functions). Phases 2-5 must keep this step green before each phase's UAT. It is a
+local Entry Criterion, not a CI job — it needs Google Chrome installed and takes about the
+duration recorded in `01-10-SUMMARY.md` (~69 s, dominated by the real-time 60 s poll wait). The
+Phase 6 Playwright suite (AUT-02, AUT-03) adds the CI job on the same tool line.
 
 Per-phase QA cycle: write test cases against that phase's requirements -> execute against the
 built feature -> file a run report -> raise bug reports for failures -> retest fixed bugs ->
@@ -116,7 +125,7 @@ folded into the relevant risk row above:
 | Local dev | Web at `http://localhost:5173`, API at `http://localhost:3000`, SQLite at `api/data/app.db`, logs at `api/logs/api.log`, Node 24, started with `npm run dev` |
 | CI | GitHub Actions, `ubuntu-latest`, Node 24, independent jobs: `lint`, `typecheck`, `test` |
 | Production | Free hosting; provider to be decided in Phase 7 — **Planned** |
-| Browsers | Chrome (latest) is primary; Firefox and Safari get spot checks per cycle |
+| Browsers | Chrome (latest) is primary; Firefox and Safari get spot checks per cycle. The `npm run smoke` browser step drives the installed Google Chrome directly (via `playwright-core`, `channel: "chrome"`) |
 | Viewports | Desktop 1280px and mobile 390px |
 | Test data | Fresh accounts created per test run (no shared/reused accounts across test cases) |
 | Upstream data source | CoinGecko: either the real Demo API key, or a local stub reachable via `COINGECKO_BASE_URL` for deterministic 429 and stale-price scenarios |
@@ -129,7 +138,8 @@ Before a test cycle for a phase begins:
 - CI is green on the commit under test
 - The commit SHA under test is recorded (visible as `commit` in `GET /health`)
 - Test cases for the phase are written and reviewed against its requirements
-- `npm run smoke` passes on the target environment
+- `npm run smoke` passes on the target environment, including its real-browser step (needs
+  Google Chrome installed locally)
 - Any known blockers are listed in the run report before execution starts
 
 ## Exit Criteria
@@ -157,11 +167,10 @@ independently of Priority (see below).
 
 ## Priority
 
-Priority measures how urgently the defect must be fixed; it is independent of Severity — a
-low-severity defect can be high priority (e.g. a typo on the sign-up button text, blocking a
-demo screenshot), and a high-severity defect that only reproduces in a rare, already-mitigated
-edge case could in principle be deprioritized relative to a release-blocking issue, though in
-this project S1/S2 bugs are always P1 per the Exit Criteria above.
+Priority measures how urgently the defect must be fixed; Severity measures how bad the defect
+is. The two are set independently, with one fixed project rule: **Every S1 and S2 bug is P1.**
+This ties directly to the Exit Criteria above, which require 0 open S1 bugs and 0 open S2 bugs
+before a phase can close.
 
 | Priority | Definition |
 |----------|------------|
@@ -169,10 +178,11 @@ this project S1/S2 bugs are always P1 per the Exit Criteria above.
 | P2 | Fix in the current or next phase |
 | P3 | Backlog — fix opportunistically, no phase commitment |
 
-Example showing the two axes are independent: a typo in a bug-report template's field label is
-S4 (cosmetic) but could be P1 (fix immediately) if it is actively confusing every bug reporter
-right now, while a rare S2 defect that only reproduces under a load pattern the app will never
-see in this project's demo usage could reasonably sit at P3.
+Example showing the two axes are independent, using only S3/S4 defects (S1/S2 are never anything
+but P1, so they cannot illustrate independence): an S4 typo on the sign-up button that appears in
+the reviewer demo is P1 (cosmetic, but actively confusing every reviewer right now); an S3 wrong
+colour for a negative 24h change on the markets table is P2; an S3 tie-break sort issue on a
+rarely used column is P3.
 
 ## Traceability
 
@@ -187,9 +197,9 @@ Phase 1 automated checks (verified to exist by plan 01-08):
 
 | Requirement | Automated check |
 |-------------|------------------|
-| FND-01 | `scripts/smoke-dev.mjs` (`npm run smoke`) |
+| FND-01 | `scripts/smoke-dev.mjs` (`npm run smoke`, including the real-browser step) |
 | FND-02 | `.github/workflows/ci.yml` |
-| FND-03 | `api/src/routes/health.test.ts`, `api/src/lib/coingecko.test.ts` |
+| FND-03 | `api/src/routes/health.test.ts`, `api/src/lib/coingecko.test.ts`, `web/src/lib/healthPoller.test.ts`, `web/src/lib/api.test.ts` |
 | FND-04 | `api/src/app.test.ts`, `api/src/lib/logger.test.ts` |
 | MEM-01..04 | `scripts/wiki-lint.mjs` |
 | QA-01 | Review of this document |
@@ -227,13 +237,14 @@ rates exist yet for any of them.
 | `qa/templates/run-report-template.md` | QA-01 | 1 | Done (Phase 1) |
 | `qa/templates/bug-report-template.md` | QA-01 | 1 | Done (Phase 1) |
 | `.github/ISSUE_TEMPLATE/bug_report.md` | QA-01 | 1 | Done (Phase 1) |
-| Phase 1 automated checks (smoke, CI, health/logger tests, wiki lint) | FND-01..04, MEM-01..04 | 1 | Done (Phase 1) |
+| Phase 1 automated checks (smoke incl. real-browser step, CI, health/logger tests, wiki lint) | FND-01..04, MEM-01..04 | 1 | Done (Phase 1) |
+| `qa/bugs/BUG-001-health-badge-api-unreachable.md` | FND-01 | 1 | Fixed (Phase 1), retest in UAT re-run |
 | Manual test cases — Auth | QA-02 | 2 | Planned (Phase 2) |
 | Manual test cases — Markets & Market Data | QA-03 | 3 | Planned (Phase 3) |
 | Manual test cases — Wallet & market orders | QA-04 | 4 | Planned (Phase 4) |
 | Manual test cases — Limit orders & history | QA-05 | 5 | Planned (Phase 5) |
 | Exploratory session notes + UX review | QA-06 | 6 | Planned (Phase 6) |
-| Bug reports | QA-07 | 6 | Planned (Phase 6) |
+| Bug reports | QA-07 | 6 | Planned (Phase 6) (BUG-001 already filed from Phase 1 UAT) |
 | API test collection | AUT-01 | 6 | Planned (Phase 6) |
 | Playwright smoke suite | AUT-02 | 6 | Planned (Phase 6) |
 | Playwright network-mocked edge cases | AUT-03 | 6 | Planned (Phase 6) |

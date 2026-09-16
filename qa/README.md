@@ -20,6 +20,14 @@ the headline deliverable of this portfolio project.
   [`.github/ISSUE_TEMPLATE/bug_report.md`](../.github/ISSUE_TEMPLATE/bug_report.md) for
   reporters who prefer filing a GitHub issue; the file under `qa/bugs/` is always canonical.
 
+## Bugs
+
+- [`bugs/BUG-001-health-badge-api-unreachable.md`](./bugs/BUG-001-health-badge-api-unreachable.md) —
+  footer health badge showed "API unreachable" while `GET /health` returned 200 (fixed Phase 1,
+  gap closure); cross-linked with the wiki finding.
+
+New reports follow the Defect Flow below and are filed at `qa/bugs/BUG-NNN-<slug>.md`.
+
 ## Planned Folders
 
 These do not exist yet — they are created when their first file is written, starting in
@@ -29,7 +37,6 @@ Phase 2. **Status: Planned.**
 |--------|----------|--------------------|
 | `qa/test-cases/` | One Markdown file per feature area | `<FEATURE>.md`, e.g. `auth.md` |
 | `qa/runs/` | One execution report per test cycle | `RUN-YYYY-MM-DD-SCOPE.md` |
-| `qa/bugs/` | One bug report per defect | `BUG-NNN-<slug>.md` |
 
 ## Defect Flow
 
@@ -51,5 +58,5 @@ These run today and are the only "Done" row in `TEST-PLAN.md`'s Deliverables and
 | Command | What it proves |
 |---------|-----------------|
 | `npm test` | Unit tests across the `api` and `web` workspaces |
-| `npm run smoke` | Full-stack smoke test (`scripts/smoke-dev.mjs`) against the real `npm run dev` |
+| `npm run smoke` | Full-stack smoke test (`scripts/smoke-dev.mjs`) against the real `npm run dev`, plus a real-browser step driving installed Google Chrome (badge, 60s poll, outage recovery) |
 | `node scripts/wiki-lint.mjs` | Project-memory wiki conventions (MEM-01..04) |
