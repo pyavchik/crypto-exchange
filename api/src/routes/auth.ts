@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyPluginCallback, FastifyReply, FastifyRequest } from "fastify";
 import type { AccountService } from "../lib/accounts.js";
+import { AppError } from "../lib/errors.js";
 import { hashPassword, verifyPassword } from "../lib/password.js";
 import {
   clearSessionCookie,
@@ -73,11 +74,44 @@ function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
+// D-15/D-27: semantic validity the Fastify body schema cannot express per
+// field (the schema already rejects a missing key or a non-string value
+// before the handler runs). Shared by signup and login so both surfaces
+// agree on what a well-formed email/password looks like.
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const EMAIL_MAX_LEN = 254;
+const PASSWORD_MIN_LEN = 8;
+const PASSWORD_MAX_LEN = 200; // T-02-16: rejected before hashing, so an oversized input never reaches scrypt.
+
+function validateCredentials(input: { email: string; password: string }): Record<string, string> {
+  const fields: Record<string, string> = {};
+
+  const trimmedEmail = input.email.trim();
+  if (trimmedEmail.length === 0 || trimmedEmail.length > EMAIL_MAX_LEN || !EMAIL_RE.test(trimmedEmail)) {
+    fields.email = "Enter a valid email address";
+  }
+
+  // Password is NEVER trimmed — the raw string, spaces included, is the
+  // secret (D-15).
+  if (input.password.length < PASSWORD_MIN_LEN) {
+    fields.password = "Password must be at least 8 characters";
+  } else if (input.password.length > PASSWORD_MAX_LEN) {
+    fields.password = "Password must be at most 200 characters";
+  }
+
+  return fields;
+}
+
 const authRoutes: FastifyPluginCallback<AuthRoutesOptions> = (app: FastifyInstance, opts, done) => {
   app.post<{ Body: SignupBody }>(
     "/api/signup",
     { schema: { body: SIGNUP_BODY_SCHEMA, response: { 201: SESSION_RESPONSE_SCHEMA } } },
     async (request, reply) => {
+      const fields = validateCredentials(request.body);
+      if (Object.keys(fields).length > 0) {
+        throw new AppError(400, "VALIDATION_ERROR", "Please fix the highlighted fields", fields);
+      }
+
       const email = normalizeEmail(request.body.email);
       const password = request.body.password;
       const passwordHash = await hashPassword(password);
@@ -94,13 +128,7 @@ const authRoutes: FastifyPluginCallback<AuthRoutesOptions> = (app: FastifyInstan
         const code = (error as { code?: unknown } | null)?.code;
         const message = error instanceof Error ? error.message : String(error);
         if (code === "SQLITE_CONSTRAINT_UNIQUE" && message.includes("users.email")) {
-          const err = new Error("That email is already registered") as Error & {
-            statusCode: number;
-            code: string;
-          };
-          err.statusCode = 409;
-          err.code = "EMAIL_TAKEN";
-          throw err;
+          throw new AppError(409, "EMAIL_TAKEN", "That email is already registered");
         }
         throw error;
       }
@@ -122,10 +150,7 @@ const authRoutes: FastifyPluginCallback<AuthRoutesOptions> = (app: FastifyInstan
       const userId = Number(request.userId);
       const account = opts.accounts.findById(userId);
       if (!account) {
-        const err = new Error("Not signed in") as Error & { statusCode: number; code: string };
-        err.statusCode = 401;
-        err.code = "UNAUTHENTICATED";
-        throw err;
+        throw new AppError(401, "UNAUTHENTICATED", "Not signed in");
       }
       const balances = opts.accounts.listBalances(userId);
       return reply.status(200).send({ email: account.email, balances });
@@ -136,6 +161,15 @@ const authRoutes: FastifyPluginCallback<AuthRoutesOptions> = (app: FastifyInstan
     "/api/login",
     { schema: { body: SIGNUP_BODY_SCHEMA, response: { 200: SESSION_RESPONSE_SCHEMA } } },
     async (request, reply) => {
+      // D-27: malformed input (e.g. an empty email) is a VALIDATION_ERROR,
+      // not an INVALID_CREDENTIALS — distinguishable without revealing
+      // whether any particular account exists (the check below doesn't
+      // depend on account lookup at all).
+      const fields = validateCredentials(request.body);
+      if (Object.keys(fields).length > 0) {
+        throw new AppError(400, "VALIDATION_ERROR", "Please fix the highlighted fields", fields);
+      }
+
       const email = normalizeEmail(request.body.email);
       const password = request.body.password;
 
@@ -148,13 +182,7 @@ const authRoutes: FastifyPluginCallback<AuthRoutesOptions> = (app: FastifyInstan
       if (!account || !passwordValid) {
         // D-26: one identical message, status and code for both failure
         // modes — login must never reveal which accounts exist.
-        const err = new Error("Invalid email or password") as Error & {
-          statusCode: number;
-          code: string;
-        };
-        err.statusCode = 401;
-        err.code = "INVALID_CREDENTIALS";
-        throw err;
+        throw new AppError(401, "INVALID_CREDENTIALS", "Invalid email or password");
       }
 
       const { token } = opts.sessions.create(account.id);

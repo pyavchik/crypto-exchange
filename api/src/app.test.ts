@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { buildApp, UUID_RE } from "./app.js";
 import { loadConfig } from "./config.js";
 import { createDb } from "./db/client.js";
+import { AppError } from "./lib/errors.js";
 import { createLogger } from "./lib/logger.js";
 
 function captureLines() {
@@ -37,10 +38,13 @@ async function buildTestApp() {
   });
 
   app.get("/__test/bad-input", async () => {
-    const err = new Error("field is required") as Error & { statusCode: number; code: string };
-    err.statusCode = 400;
-    err.code = "BAD_INPUT";
-    throw err;
+    throw new AppError(400, "BAD_INPUT", "field is required");
+  });
+
+  app.get("/__test/validation-error", async () => {
+    throw new AppError(400, "VALIDATION_ERROR", "Please fix the highlighted fields", {
+      email: "Enter a valid email address",
+    });
   });
 
   return { app, lines };
@@ -181,6 +185,46 @@ describe("app request-id, error shape, CORS and request logging", () => {
     expect(response.json()).toEqual({
       error: { code: "BAD_INPUT", message: "field is required", requestId },
     });
+
+    await app.close();
+  });
+
+  it("keeps the exact three-member D-09 envelope for a plain AppError with no fields (D-27)", async () => {
+    const { app } = await buildTestApp();
+
+    const response = await app.inject({ method: "GET", url: "/__test/bad-input" });
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.fields).toBeUndefined();
+    expect(Object.keys(response.json().error).sort()).toEqual(["code", "message", "requestId"]);
+
+    await app.close();
+  });
+
+  it("adds a fields member only when the thrown AppError actually carries one (D-27)", async () => {
+    const { app } = await buildTestApp();
+
+    const response = await app.inject({ method: "GET", url: "/__test/validation-error" });
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe("VALIDATION_ERROR");
+    expect(response.json().error.fields).toEqual({ email: "Enter a valid email address" });
+
+    await app.close();
+  });
+
+  it("a 500-class error still returns the generic internal-error envelope with no leaked message, even for an AppError-shaped throw", async () => {
+    const { app } = await buildTestApp();
+
+    app.get("/__test/server-error", async () => {
+      throw new AppError(500, "SHOULD_NOT_LEAK", "internal detail that must not reach the client");
+    });
+
+    const response = await app.inject({ method: "GET", url: "/__test/server-error" });
+    expect(response.statusCode).toBe(500);
+    const requestId = response.headers["x-request-id"] as string;
+    expect(response.json()).toEqual({
+      error: { code: "INTERNAL_ERROR", message: "Internal Server Error", requestId },
+    });
+    expect(response.body).not.toContain("internal detail");
 
     await app.close();
   });

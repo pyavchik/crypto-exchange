@@ -151,6 +151,124 @@ describe("POST /api/signup", () => {
   });
 });
 
+describe("POST /api/signup — per-field validation (D-27)", () => {
+  it("rejects an invalid email with a per-field message", async () => {
+    const { app } = await buildTestApp();
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/signup",
+      payload: { email: "not-an-email", password: "password1" },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe("VALIDATION_ERROR");
+    expect(response.json().error.fields.email).toBe("Enter a valid email address");
+
+    await app.close();
+  });
+
+  it("rejects a 7-character password with a per-field message", async () => {
+    const { app } = await buildTestApp();
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/signup",
+      payload: { email: "shortpw@example.com", password: "1234567" },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe("VALIDATION_ERROR");
+    expect(response.json().error.fields.password).toBe("Password must be at least 8 characters");
+
+    await app.close();
+  });
+
+  it("accepts an exactly 8-character password — the boundary is inclusive (D-15)", async () => {
+    const { app } = await buildTestApp();
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/signup",
+      payload: { email: "boundary@example.com", password: "12345678" },
+    });
+
+    expect(response.statusCode).toBe(201);
+
+    await app.close();
+  });
+
+  it("never trims a password: leading/trailing spaces are part of the secret at login", async () => {
+    const { app } = await buildTestApp();
+    // Trimmed form ("password1", 9 chars) is itself a validly-shaped
+    // password, so a login with it failing proves the raw (untrimmed) string
+    // is what was actually hashed — not just that validation rejected it.
+    const password = "  password1  ";
+
+    const signup = await app.inject({
+      method: "POST",
+      url: "/api/signup",
+      payload: { email: "spacepw@example.com", password },
+    });
+    expect(signup.statusCode).toBe(201);
+
+    const loginWithSpaces = await app.inject({
+      method: "POST",
+      url: "/api/login",
+      payload: { email: "spacepw@example.com", password },
+    });
+    expect(loginWithSpaces.statusCode).toBe(200);
+
+    const loginTrimmed = await app.inject({
+      method: "POST",
+      url: "/api/login",
+      payload: { email: "spacepw@example.com", password: password.trim() },
+    });
+    expect(loginTrimmed.statusCode).toBe(401);
+    expect(loginTrimmed.json().error.code).toBe("INVALID_CREDENTIALS");
+
+    await app.close();
+  });
+
+  it("returns both field messages at once when both email and password are invalid", async () => {
+    const { app } = await buildTestApp();
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/signup",
+      payload: { email: "not-an-email", password: "short" },
+    });
+
+    expect(response.statusCode).toBe(400);
+    const fields = response.json().error.fields;
+    expect(fields.email).toBe("Enter a valid email address");
+    expect(fields.password).toBe("Password must be at least 8 characters");
+
+    await app.close();
+  });
+
+  it("rejects a duplicate email that differs only by case or surrounding whitespace, with the fixed message", async () => {
+    const { app } = await buildTestApp();
+    await app.inject({
+      method: "POST",
+      url: "/api/signup",
+      payload: { email: "dupcase@example.com", password: "password1" },
+    });
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/signup",
+      payload: { email: "  DupCase@Example.com  ", password: "password2" },
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json().error.code).toBe("EMAIL_TAKEN");
+    expect(response.json().error.message).toBe("That email is already registered");
+
+    await app.close();
+  });
+});
+
 describe("GET /api/me", () => {
   it("returns the account for a replayed valid session cookie (simulated browser refresh)", async () => {
     const { app } = await buildTestApp();
@@ -337,6 +455,21 @@ describe("POST /api/login", () => {
       ...wrongBody.error,
       requestId: undefined,
     });
+
+    await app.close();
+  });
+
+  it("returns 400 VALIDATION_ERROR (not 401) for an empty email — malformed input is distinguishable from a failed credential check", async () => {
+    const { app } = await buildTestApp();
+
+    const response = await app.inject({
+      method: "POST",
+      url: "/api/login",
+      payload: { email: "", password: "password1" },
+    });
+
+    expect(response.statusCode).toBe(400);
+    expect(response.json().error.code).toBe("VALIDATION_ERROR");
 
     await app.close();
   });
