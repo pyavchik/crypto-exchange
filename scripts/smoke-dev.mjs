@@ -49,14 +49,90 @@ async function getFreePort() {
   });
 }
 
+// D-36 self-pair exclusion proof needs the quote asset itself in the fixture;
+// the sub-cent and null-24h-change entries exercise Pitfall 3 and the
+// null-preserving formatting path against real rendered DOM, not a unit
+// fixture. 25 entries mirrors UPSTREAM_PAGE_SIZE so the curated-20 slice
+// after excluding the quote asset is exercised end to end.
+const MARKETS_QUOTE_ASSET_ID = "tether";
+const MARKETS_SUB_CENT_ID = "microcoin";
+
+function buildMarketsFixture() {
+  const entries = [
+    {
+      id: "bitcoin",
+      symbol: "btc",
+      name: "Bitcoin",
+      current_price: 75755,
+      market_cap: 1521766040123,
+      total_volume: 39122950768,
+      price_change_percentage_24h: -1.53973,
+    },
+    {
+      id: "ethereum",
+      symbol: "eth",
+      name: "Ethereum",
+      current_price: 2400.26,
+      market_cap: 292987353189,
+      total_volume: 12345678,
+      price_change_percentage_24h: 2.1,
+    },
+    {
+      id: MARKETS_QUOTE_ASSET_ID,
+      symbol: "usdt",
+      name: "Tether",
+      current_price: 1.0,
+      market_cap: 120000000000,
+      total_volume: 50000000000,
+      price_change_percentage_24h: 0.01,
+    },
+    {
+      id: MARKETS_SUB_CENT_ID,
+      symbol: "micr",
+      name: "Micro Coin",
+      current_price: 0.00001234,
+      market_cap: 1000000,
+      total_volume: 20000,
+      price_change_percentage_24h: null,
+    },
+  ];
+  for (let i = entries.length; i < 25; i += 1) {
+    entries.push({
+      id: `smoke-coin-${i}`,
+      symbol: `sc${i}`,
+      name: `Smoke Coin ${i}`,
+      current_price: 10 + i,
+      market_cap: 1_000_000 * (i + 1),
+      total_volume: 500_000 * (i + 1),
+      price_change_percentage_24h: i % 2 === 0 ? 1.5 : -1.5,
+    });
+  }
+  return entries;
+}
+
 function startStub() {
-  const state = { hits: 0, lastKeyHeader: null };
+  const state = {
+    hits: 0,
+    lastKeyHeader: null,
+    marketsHits: 0,
+    lastMarketsKeyHeader: null,
+    lastMarketsQuery: null,
+  };
   const server = createHttpServer((req, res) => {
-    if (req.method === "GET" && req.url === "/ping") {
+    const [path, query] = (req.url ?? "").split("?");
+    if (req.method === "GET" && path === "/ping") {
       state.hits += 1;
       state.lastKeyHeader = req.headers["x-cg-demo-api-key"] ?? null;
       res.writeHead(200, { "content-type": "application/json" });
       res.end(JSON.stringify({ gecko_says: "(V3) To the Moon!" }));
+      return;
+    }
+    if (req.method === "GET" && path === "/coins/markets") {
+      state.marketsHits += 1;
+      state.lastMarketsKeyHeader = req.headers["x-cg-demo-api-key"] ?? null;
+      state.lastMarketsQuery = query ?? "";
+      res.writeHead(200, { "content-type": "application/json" });
+      res.end(JSON.stringify(buildMarketsFixture()));
       return;
     }
     res.writeHead(404);
@@ -298,6 +374,14 @@ async function main() {
     let outageStarted = false;
 
     const page = await browser.newPage();
+    // Records every outgoing request the page makes, for the whole run, so
+    // the success-criterion-3 proof below (no request leaves localhost, none
+    // carries the Demo key) sees the entire journey, not just the markets
+    // section. Registered before the first page.goto so no request escapes.
+    const allRequests = [];
+    page.on("request", (request) => {
+      allRequests.push(request);
+    });
     page.on("pageerror", (error) => {
       pageErrors.push(error.message);
     });
@@ -601,6 +685,168 @@ async function main() {
     if (pageErrors.length > 0 || consoleErrors.length > 0) {
       fail(
         `browser: page/console errors detected during the logout/login journey — pageErrors: ${JSON.stringify(
+          pageErrors,
+        )}, consoleErrors: ${JSON.stringify(consoleErrors)}`,
+      );
+    }
+
+    // (r) Markets: real-browser proof the curated table renders, D-36's
+    // self-pair exclusion and sub-cent legibility hold in the actual DOM,
+    // the second load is served from the server-side 45s cache (DATA-02),
+    // and — the reason this section exists — the Demo key never leaves the
+    // server (success criterion 3, DATA-01).
+    async function waitForMarketsRowCount(predicate, timeoutMs, description) {
+      const deadline = Date.now() + timeoutMs;
+      let lastCount = 0;
+      while (Date.now() < deadline) {
+        lastCount = await page.getByTestId("markets-row").count();
+        if (predicate(lastCount)) return lastCount;
+        await new Promise((r) => setTimeout(r, 200));
+      }
+      fail(
+        `browser: markets-row count did not reach ${description} within ${timeoutMs}ms (last count: ${lastCount})`,
+      );
+      return lastCount; // unreachable — fail() always throws
+    }
+
+    // The app's index route redirects "/" -> "/markets" (client-side
+    // Navigate), and earlier sections above already visited "/" — so a
+    // markets fetch may already have happened once, possibly outside this
+    // section's own 45s TTL window (the ~50-70s real-time health-poll wait
+    // in section (i) alone exceeds it). Compare against a baseline captured
+    // right before this section's own navigation, rather than an absolute
+    // count, so this section's assertions are about ITS OWN dedup and cache
+    // behavior, not about how many markets fetches happened earlier.
+    const marketsHitsBeforeSection = stub.state.marketsHits;
+
+    await page.goto(`http://localhost:${webPort}/markets`);
+    await waitForMarketsRowCount((count) => count === 20, 15_000, "20 (curated limit)");
+
+    const rowCoinIds = await page
+      .getByTestId("markets-row")
+      .evaluateAll((elements) => elements.map((element) => element.getAttribute("data-coin-id")));
+    if (rowCoinIds.includes(MARKETS_QUOTE_ASSET_ID)) {
+      fail(
+        `browser: markets table rendered the stablecoin self-pair row (coin id "${MARKETS_QUOTE_ASSET_ID}") — D-36 exclusion failed`,
+      );
+    }
+
+    const marketsBodyText = (await page.locator("body").textContent()) ?? "";
+    if (!marketsBodyText.includes("BTC/USDT")) {
+      fail(`browser: markets table missing the BTC/USDT pair label (body: "${marketsBodyText}")`);
+    }
+    if (!marketsBodyText.includes("$75,755.00")) {
+      fail(`browser: markets table missing the formatted BTC price (body: "${marketsBodyText}")`);
+    }
+    if (!marketsBodyText.includes("USDT as")) {
+      fail(`browser: quote-convention note missing from the page (body: "${marketsBodyText}")`);
+    }
+
+    // Pitfall 3 regression, checked against the real rendered DOM: a
+    // sub-cent price must not collapse to a run of zeros.
+    const subCentRowText =
+      (await page
+        .locator(`[data-testid="markets-row"][data-coin-id="${MARKETS_SUB_CENT_ID}"]`)
+        .textContent()
+        .catch(() => "")) ?? "";
+    if (!subCentRowText) {
+      fail(`browser: sub-cent fixture row (coin id "${MARKETS_SUB_CENT_ID}") did not render`);
+    }
+    if (!/1234/.test(subCentRowText)) {
+      fail(
+        `browser: sub-cent price did not preserve significant digits (row text: "${subCentRowText}")`,
+      );
+    }
+    if (/\$0\.00(00)?(\s|$)/.test(subCentRowText)) {
+      fail(`browser: sub-cent price rendered as a run of zeros (row text: "${subCentRowText}")`);
+    }
+
+    const marketsHitsAfterFirstLoad = stub.state.marketsHits;
+    if (marketsHitsAfterFirstLoad !== marketsHitsBeforeSection + 1) {
+      fail(
+        `this navigation caused ${marketsHitsAfterFirstLoad - marketsHitsBeforeSection} markets upstream hits, expected exactly 1 (dedup across the browser's double-effect load)`,
+      );
+    }
+    if (stub.state.lastMarketsKeyHeader !== "smoke-test-key") {
+      fail(
+        `stub recorded markets key header "${stub.state.lastMarketsKeyHeader}", expected "smoke-test-key"`,
+      );
+    }
+    const marketsQuery = stub.state.lastMarketsQuery ?? "";
+    if (!marketsQuery.includes("vs_currency=usd")) {
+      fail(`stub recorded markets query "${marketsQuery}" missing vs_currency=usd`);
+    }
+    if (!marketsQuery.includes("price_change_percentage=24h")) {
+      fail(`stub recorded markets query "${marketsQuery}" missing price_change_percentage=24h`);
+    }
+
+    // Second load: DATA-02's whole point measured against the real stack —
+    // the server-side 45s cache means the stub is not hit again.
+    await page.reload();
+    await waitForMarketsRowCount((count) => count === 20, 15_000, "20 after reload");
+    if (stub.state.marketsHits !== marketsHitsAfterFirstLoad) {
+      fail(
+        `stub markets endpoint was hit again after reload (before: ${marketsHitsAfterFirstLoad}, after: ${stub.state.marketsHits}), expected the server-side 45s cache to serve the second load with no new upstream hit`,
+      );
+    }
+
+    // Success-criterion-3 proof: iterate every request recorded since page
+    // creation and fail on any that leaves localhost/127.0.0.1 or carries
+    // the Demo key in a URL, header, or post body. The hostname rule is what
+    // makes this a guarantee rather than a spot check — the markets payload
+    // carries no external URL of any kind (no image field is mapped), so a
+    // request to any other host means something in the app reached outside.
+    const REDACTED = "[REDACTED]";
+    function redact(text) {
+      return text.split(devEnv.COINGECKO_API_KEY).join(REDACTED);
+    }
+    for (const request of allRequests) {
+      let requestUrl;
+      try {
+        requestUrl = new URL(request.url());
+      } catch {
+        continue;
+      }
+      if (requestUrl.hostname !== "localhost" && requestUrl.hostname !== "127.0.0.1") {
+        fail(`browser: a request left localhost/127.0.0.1 — ${redact(requestUrl.href)}`);
+      }
+      if (request.url().includes(devEnv.COINGECKO_API_KEY)) {
+        fail(`browser: a request URL carried the Demo key — ${redact(requestUrl.href)}`);
+      }
+      const headers = await request.allHeaders();
+      for (const [headerName, headerValue] of Object.entries(headers)) {
+        if (typeof headerValue === "string" && headerValue.includes(devEnv.COINGECKO_API_KEY)) {
+          fail(
+            `browser: request header "${headerName}" carried the Demo key on ${redact(requestUrl.href)}`,
+          );
+        }
+      }
+      const postData = request.postData();
+      if (postData && postData.includes(devEnv.COINGECKO_API_KEY)) {
+        fail(`browser: request post data carried the Demo key on ${redact(requestUrl.href)}`);
+      }
+    }
+
+    // Extends the existing log-file key-absence proof (e/f above) to the
+    // markets upstream call specifically.
+    const marketsUpstreamLine = await pollForLogLine(
+      logFilePath,
+      (entry) =>
+        entry.msg === "upstream call" &&
+        typeof entry.url === "string" &&
+        entry.url.includes("/coins/markets"),
+      5_000,
+    );
+    if (!marketsUpstreamLine) {
+      fail('no matching markets "upstream call" log line found within 5s');
+    }
+    if (marketsUpstreamLine.contents.includes(devEnv.COINGECKO_API_KEY)) {
+      fail("log file contains the configured CoinGecko API key (markets upstream call)");
+    }
+
+    if (pageErrors.length > 0 || consoleErrors.length > 0) {
+      fail(
+        `browser: page/console errors detected during the markets section — pageErrors: ${JSON.stringify(
           pageErrors,
         )}, consoleErrors: ${JSON.stringify(consoleErrors)}`,
       );

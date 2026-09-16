@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { formatCompact, formatPercent, formatPrice, formatUpdatedAt, toPairLabel } from "./format.js";
+import {
+  formatCompact,
+  formatPercent,
+  formatPrice,
+  formatUpdatedAt,
+  toPairLabel,
+} from "./format.js";
 
 describe("formatPrice", () => {
   it("renders a five-figure price with exactly two decimals and a thousands separator", () => {
@@ -78,7 +84,7 @@ describe("formatUpdatedAt", () => {
 });
 
 describe("toPairLabel", () => {
-  it('returns the uppercased symbol joined to the quote symbol by a slash', () => {
+  it("returns the uppercased symbol joined to the quote symbol by a slash", () => {
     expect(toPairLabel("btc")).toBe("BTC/USDT");
   });
 });

@@ -65,7 +65,7 @@ describe("createInFlightRegistry", () => {
 
 describe("createKeyedCache", () => {
   it("calls the fetcher on the first call and returns stale: false with a fetchedAt from the injected clock", async () => {
-    let now = 1_700_000_000_000;
+    const now = 1_700_000_000_000;
     const cache = createKeyedCache<string>({ now: () => now });
     const fetcher = vi.fn(async () => "value-1");
 
@@ -127,7 +127,7 @@ describe("createKeyedCache", () => {
   });
 
   it("peek returns the current entry without triggering a fetch", async () => {
-    let now = 1_700_000_000_000;
+    const now = 1_700_000_000_000;
     const cache = createKeyedCache<string>({ now: () => now });
     const fetcher = vi.fn(async () => "value");
 

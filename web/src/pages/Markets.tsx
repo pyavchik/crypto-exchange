@@ -47,8 +47,8 @@ export function MarketsView({ state }: MarketsViewProps) {
           reviewer is not misled into believing a genuinely stablecoin-quoted
           feed exists. */}
       <p data-testid="quote-convention">
-        Prices are CoinGecko&apos;s USD reference prices. This exchange treats {QUOTE_SYMBOL} as
-        1:1 with USD.
+        Prices are CoinGecko&apos;s USD reference prices. This exchange treats {QUOTE_SYMBOL} as 1:1
+        with USD.
       </p>
       <table data-testid="markets-table">
         <thead>

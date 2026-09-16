@@ -110,7 +110,9 @@ describe("GET /api/markets", () => {
     const logger = createLogger({ destination: { write: () => true } });
     const config = loadConfig({ COINGECKO_API_KEY: "test-key" });
     const fixture = makeFixture(21).map((entry, index) =>
-      index === 0 ? { ...(entry as Record<string, unknown>), image: "https://evil.example/x.png" } : entry,
+      index === 0
+        ? { ...(entry as Record<string, unknown>), image: "https://evil.example/x.png" }
+        : entry,
     );
     const fetchImpl = (async () =>
       new Response(JSON.stringify(fixture), { status: 200 })) as typeof fetch;

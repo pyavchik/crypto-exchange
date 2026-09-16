@@ -168,7 +168,9 @@ describe("toMarketPairs", () => {
 
   it("throws on an array whose entries lack a string id or a numeric current_price", () => {
     expect(() => toMarketPairs([{ symbol: "btc", current_price: 1 }])).toThrow();
-    expect(() => toMarketPairs([{ id: "bitcoin", symbol: "btc", current_price: "not-a-number" }])).toThrow();
+    expect(() =>
+      toMarketPairs([{ id: "bitcoin", symbol: "btc", current_price: "not-a-number" }]),
+    ).toThrow();
     expect(() => toMarketPairs([{ id: "bitcoin", symbol: "btc" }])).toThrow();
   });
 });
@@ -236,16 +238,17 @@ describe("createMarketDataService", () => {
 
     expect(fetchImpl).toHaveBeenCalledTimes(1);
     expect(result.pairs).toHaveLength(CURATED_LIMIT);
-    const [, calledOptions] = (
-      fetchImpl as unknown as { mock: { calls: [string, RequestInit][] } }
-    ).mock.calls[0]!;
+    const [, calledOptions] = (fetchImpl as unknown as { mock: { calls: [string, RequestInit][] } })
+      .mock.calls[0]!;
     const headers = calledOptions.headers as Record<string, string>;
     expect(headers["x-cg-demo-api-key"]).toBeUndefined();
   });
 
   it("throws MarketDataUpstreamError(502, UPSTREAM_UNAVAILABLE) when the upstream returns a non-2xx status", async () => {
     const { log } = makeLogger();
-    const fetchImpl = vi.fn(async () => new Response(null, { status: 429 })) as unknown as typeof fetch;
+    const fetchImpl = vi.fn(
+      async () => new Response(null, { status: 429 }),
+    ) as unknown as typeof fetch;
     const service = createMarketDataService({ apiKey: "key", baseUrl: BASE_URL, fetchImpl });
 
     await expect(service.getMarkets({ requestId: "req-1", log })).rejects.toMatchObject({
@@ -256,7 +259,9 @@ describe("createMarketDataService", () => {
 
   it("classifies a 429 as reason http_429 on the thrown MarketDataUpstreamError", async () => {
     const { log } = makeLogger();
-    const fetchImpl = vi.fn(async () => new Response(null, { status: 429 })) as unknown as typeof fetch;
+    const fetchImpl = vi.fn(
+      async () => new Response(null, { status: 429 }),
+    ) as unknown as typeof fetch;
     const service = createMarketDataService({ apiKey: "key", baseUrl: BASE_URL, fetchImpl });
 
     try {
