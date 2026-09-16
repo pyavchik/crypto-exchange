@@ -1,6 +1,8 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   fetchMe as realFetchMe,
+  login as realLogin,
+  logout as realLogout,
   signup as realSignup,
   type ApiResult,
   type Balance,
@@ -34,13 +36,50 @@ export function nextAuthState(result: PromiseSettledResult<ApiResult<SessionResp
 export interface AuthClient {
   signup: typeof realSignup;
   fetchMe: typeof realFetchMe;
+  login: typeof realLogin;
+  logout: typeof realLogout;
 }
 
-const defaultClient: AuthClient = { signup: realSignup, fetchMe: realFetchMe };
+const defaultClient: AuthClient = {
+  signup: realSignup,
+  fetchMe: realFetchMe,
+  login: realLogin,
+  logout: realLogout,
+};
+
+// Pure, testable core of login(): resolves to the next authenticated state on
+// success, exactly mirroring the shape of the successful branch of
+// nextAuthState above. On failure the ApiError propagates untouched — the
+// caller (AuthProvider.login) is the one that decides what state to set.
+export async function performLogin(
+  client: Pick<AuthClient, "login">,
+  email: string,
+  password: string,
+): Promise<AuthState> {
+  const result = await client.login({ email, password });
+  return {
+    kind: "authenticated",
+    email: result.data.email,
+    balances: result.data.balances,
+  };
+}
+
+// Pure, testable core of logout(): never rejects. The user asked to be
+// signed out; the server session is revoked independently, so a failed
+// request must not stop the local state from clearing.
+export async function performLogout(client: Pick<AuthClient, "logout">): Promise<void> {
+  try {
+    await client.logout();
+  } catch {
+    // Ignored intentionally — see doc comment above.
+  }
+}
 
 export interface AuthContextValue {
   state: AuthState;
   signup(email: string, password: string): Promise<void>;
+  login(email: string, password: string): Promise<void>;
+  logout(): Promise<void>;
 }
 
 function unusedAction(): never {
@@ -50,6 +89,8 @@ function unusedAction(): never {
 const AuthContext = createContext<AuthContextValue>({
   state: { kind: "loading" },
   signup: unusedAction,
+  login: unusedAction,
+  logout: unusedAction,
 });
 
 export interface AuthProviderProps {
@@ -99,6 +140,23 @@ export function AuthProvider({
           email: result.data.email,
           balances: result.data.balances,
         });
+      },
+      async login(email: string, password: string): Promise<void> {
+        try {
+          setState(await performLogin(client, email, password));
+        } catch (error) {
+          // Leaves the state anonymous on failure and rethrows so the form
+          // can render the message (401 INVALID_CREDENTIALS, 400 field
+          // detail, or a network error).
+          setState({ kind: "anonymous" });
+          throw error;
+        }
+      },
+      async logout(): Promise<void> {
+        // Always moves to anonymous, even if the request itself failed —
+        // see performLogout's doc comment.
+        await performLogout(client);
+        setState({ kind: "anonymous" });
       },
     }),
     [state, client],

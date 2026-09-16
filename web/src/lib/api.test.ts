@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ApiError, fetchHealth, type HealthResponse } from "./api.js";
+import { ApiError, fetchHealth, fetchWallet, login, logout, type HealthResponse } from "./api.js";
 
 const HEALTH_BODY: HealthResponse = {
   status: "ok",
@@ -87,5 +87,138 @@ describe("fetchHealth", () => {
     }) as typeof fetch;
 
     await expect(fetchHealth({ fetchImpl })).rejects.toBe(abortError);
+  });
+});
+
+describe("login", () => {
+  it('sends credentials: "include" so the session cookie is attached', async () => {
+    let capturedInit: RequestInit | undefined;
+    const fetchImpl = (async (_url, init) => {
+      capturedInit = init;
+      return new Response(
+        JSON.stringify({
+          email: "a@example.com",
+          balances: [{ asset: "USDT", amount: "10000.00000000" }],
+        }),
+        { status: 200, headers: { "x-request-id": "r-login" } },
+      );
+    }) as typeof fetch;
+
+    const result = await login({ email: "a@example.com", password: "password1" }, { fetchImpl });
+
+    expect(capturedInit?.credentials).toBe("include");
+    expect(result.data.email).toBe("a@example.com");
+  });
+
+  it("rejects with ApiError INVALID_CREDENTIALS and the server's message on a 401", async () => {
+    const fetchImpl = (async () =>
+      new Response(
+        JSON.stringify({
+          error: {
+            code: "INVALID_CREDENTIALS",
+            message: "Invalid email or password",
+            requestId: "r-1",
+          },
+        }),
+        { status: 401 },
+      )) as typeof fetch;
+
+    await expect(
+      login({ email: "a@example.com", password: "wrong" }, { fetchImpl }),
+    ).rejects.toMatchObject({
+      status: 401,
+      code: "INVALID_CREDENTIALS",
+      message: "Invalid email or password",
+      requestId: "r-1",
+    } satisfies Partial<ApiError>);
+  });
+
+  it("rejects with an ApiError exposing field detail on a 400 validation failure", async () => {
+    const fetchImpl = (async () =>
+      new Response(
+        JSON.stringify({
+          error: {
+            code: "VALIDATION_ERROR",
+            message: "Please fix the highlighted fields",
+            requestId: "r-2",
+            fields: { email: "Enter a valid email address" },
+          },
+        }),
+        { status: 400 },
+      )) as typeof fetch;
+
+    await expect(
+      login({ email: "bad", password: "password1" }, { fetchImpl }),
+    ).rejects.toMatchObject({
+      status: 400,
+      code: "VALIDATION_ERROR",
+      fields: { email: "Enter a valid email address" },
+    } satisfies Partial<ApiError>);
+  });
+
+  it("leaves fields null when the error body carries no field detail, so existing callers are unaffected", async () => {
+    const fetchImpl = (async () =>
+      new Response(
+        JSON.stringify({
+          error: {
+            code: "INVALID_CREDENTIALS",
+            message: "Invalid email or password",
+            requestId: "r-3",
+          },
+        }),
+        { status: 401 },
+      )) as typeof fetch;
+
+    await expect(
+      login({ email: "a@example.com", password: "wrong" }, { fetchImpl }),
+    ).rejects.toMatchObject({ fields: null } satisfies Partial<ApiError>);
+  });
+});
+
+describe("logout", () => {
+  it('sends credentials: "include" and resolves successfully on a 200', async () => {
+    let capturedInit: RequestInit | undefined;
+    const fetchImpl = (async (_url, init) => {
+      capturedInit = init;
+      return new Response(JSON.stringify({ ok: true }), { status: 200 });
+    }) as typeof fetch;
+
+    const result = await logout({ fetchImpl });
+
+    expect(capturedInit?.credentials).toBe("include");
+    expect(result.data).toEqual({ ok: true });
+  });
+});
+
+describe("fetchWallet", () => {
+  it('sends credentials: "include" and returns balances on a 200', async () => {
+    let capturedInit: RequestInit | undefined;
+    const fetchImpl = (async (_url, init) => {
+      capturedInit = init;
+      return new Response(
+        JSON.stringify({ balances: [{ asset: "USDT", amount: "10000.00000000" }] }),
+        { status: 200 },
+      );
+    }) as typeof fetch;
+
+    const result = await fetchWallet({ fetchImpl });
+
+    expect(capturedInit?.credentials).toBe("include");
+    expect(result.data.balances).toEqual([{ asset: "USDT", amount: "10000.00000000" }]);
+  });
+
+  it("rejects with ApiError UNAUTHENTICATED on a 401", async () => {
+    const fetchImpl = (async () =>
+      new Response(
+        JSON.stringify({
+          error: { code: "UNAUTHENTICATED", message: "Not signed in", requestId: "r-4" },
+        }),
+        { status: 401 },
+      )) as typeof fetch;
+
+    await expect(fetchWallet({ fetchImpl })).rejects.toMatchObject({
+      status: 401,
+      code: "UNAUTHENTICATED",
+    } satisfies Partial<ApiError>);
   });
 });

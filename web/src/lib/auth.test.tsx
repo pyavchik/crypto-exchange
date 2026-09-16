@@ -3,7 +3,13 @@ import { describe, expect, it } from "vitest";
 import { MemoryRouter } from "react-router";
 import { AppRoutes } from "../App.js";
 import { ApiError, type SessionResponse } from "./api.js";
-import { AuthProvider, nextAuthState } from "./auth.js";
+import {
+  AuthProvider,
+  nextAuthState,
+  performLogin,
+  performLogout,
+  type AuthClient,
+} from "./auth.js";
 import { SignupView } from "../pages/Signup.js";
 import { WalletView } from "../pages/Wallet.js";
 
@@ -43,6 +49,56 @@ describe("nextAuthState", () => {
   it("maps any other failure (a non-ApiError) to anonymous (fail closed)", () => {
     const state = nextAuthState({ status: "rejected", reason: new TypeError("boom") });
     expect(state).toEqual({ kind: "anonymous" });
+  });
+});
+
+describe("performLogin", () => {
+  it("resolves to the authenticated state on success", async () => {
+    const client: Pick<AuthClient, "login"> = {
+      login: async () => ({
+        data: { email: "a@example.com", balances: [{ asset: "USDT", amount: "10000.00000000" }] },
+        requestId: "r-1",
+      }),
+    };
+
+    const state = await performLogin(client, "a@example.com", "password1");
+
+    expect(state).toEqual({
+      kind: "authenticated",
+      email: "a@example.com",
+      balances: [{ asset: "USDT", amount: "10000.00000000" }],
+    });
+  });
+
+  it("rejects with the ApiError untouched on failure", async () => {
+    const error = new ApiError(401, "INVALID_CREDENTIALS", "r-2");
+    const client: Pick<AuthClient, "login"> = {
+      login: async () => {
+        throw error;
+      },
+    };
+
+    await expect(performLogin(client, "a@example.com", "wrong")).rejects.toBe(error);
+  });
+});
+
+describe("performLogout", () => {
+  it("resolves when the underlying request succeeds", async () => {
+    const client: Pick<AuthClient, "logout"> = {
+      logout: async () => ({ data: { ok: true }, requestId: null }),
+    };
+
+    await expect(performLogout(client)).resolves.toBeUndefined();
+  });
+
+  it("resolves even when the underlying request rejects — the user asked to be signed out", async () => {
+    const client: Pick<AuthClient, "logout"> = {
+      logout: async () => {
+        throw new ApiError(null, "NETWORK_ERROR", null);
+      },
+    };
+
+    await expect(performLogout(client)).resolves.toBeUndefined();
   });
 });
 

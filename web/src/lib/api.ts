@@ -29,13 +29,23 @@ export class ApiError extends Error {
   status: number | null;
   code: string;
   requestId: string | null;
+  // D-27: per-field validation detail. Defaults to null so every existing
+  // three-arg call site (and every non-VALIDATION_ERROR response) is
+  // unaffected.
+  fields: Record<string, string> | null;
 
-  constructor(status: number | null, code: string, requestId: string | null) {
+  constructor(
+    status: number | null,
+    code: string,
+    requestId: string | null,
+    fields: Record<string, string> | null = null,
+  ) {
     super(`API error: ${code}`);
     this.name = "ApiError";
     this.status = status;
     this.code = code;
     this.requestId = requestId;
+    this.fields = fields;
   }
 }
 
@@ -84,20 +94,27 @@ export interface SessionResponse {
   balances: Balance[];
 }
 
-// Shared parse path for both signup and fetchMe: a 2xx body that fails to
-// parse as JSON surfaces as ApiError INVALID_RESPONSE_BODY, matching
-// fetchHealth's contract above rather than throwing a raw SyntaxError.
-async function parseSessionResponse(
+// Shared parse path for every JSON 2xx body: a response that fails to parse
+// as JSON surfaces as ApiError INVALID_RESPONSE_BODY, matching fetchHealth's
+// contract above rather than throwing a raw SyntaxError.
+async function parseJsonBody<T>(
   response: Response,
   headerRequestId: string | null,
-): Promise<ApiResult<SessionResponse>> {
-  let data: SessionResponse;
+): Promise<ApiResult<T>> {
+  let data: T;
   try {
-    data = (await response.json()) as SessionResponse;
+    data = (await response.json()) as T;
   } catch {
     throw new ApiError(response.status, "INVALID_RESPONSE_BODY", headerRequestId);
   }
   return { data, requestId: headerRequestId };
+}
+
+function parseSessionResponse(
+  response: Response,
+  headerRequestId: string | null,
+): Promise<ApiResult<SessionResponse>> {
+  return parseJsonBody<SessionResponse>(response, headerRequestId);
 }
 
 // credentials: "include" is what makes the browser attach the session cookie
@@ -154,13 +171,119 @@ export async function fetchMe(
   return parseSessionResponse(response, headerRequestId);
 }
 
-interface ErrorResponseBody {
-  error?: { code?: unknown; message?: unknown; requestId?: unknown };
+// credentials: "include" for the same reason as signup — the session cookie
+// must leave the browser on the cross-origin call.
+export async function login(
+  input: { email: string; password: string },
+  options: { signal?: AbortSignal; fetchImpl?: typeof fetch } = {},
+): Promise<ApiResult<SessionResponse>> {
+  const { signal, fetchImpl = fetch } = options;
+
+  let response: Response;
+  try {
+    response = await fetchImpl(`${API_BASE_URL}/api/login`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+      credentials: "include",
+      signal,
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw error;
+    }
+    throw new ApiError(null, "NETWORK_ERROR", null);
+  }
+
+  const headerRequestId = response.headers.get("x-request-id");
+  if (!response.ok) {
+    throw await parseErrorResponse(response, headerRequestId);
+  }
+  return parseSessionResponse(response, headerRequestId);
 }
 
-// D-09: error responses use { error: { code, message, requestId } }. Falls
-// back to a synthetic HTTP_<status> code (and the response header's request
-// id) when the body is missing, non-JSON, or lacks a string error.code.
+export interface LogoutResponse {
+  ok: boolean;
+}
+
+// D-18: the server treats logout as idempotent and always returns 200, but
+// the client still guards the fetch/parse paths the same way every other
+// call here does — a network failure or malformed body must still surface as
+// ApiError, not throw a raw error the caller doesn't expect.
+export async function logout(
+  options: { signal?: AbortSignal; fetchImpl?: typeof fetch } = {},
+): Promise<ApiResult<LogoutResponse>> {
+  const { signal, fetchImpl = fetch } = options;
+
+  let response: Response;
+  try {
+    response = await fetchImpl(`${API_BASE_URL}/api/logout`, {
+      method: "POST",
+      credentials: "include",
+      signal,
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw error;
+    }
+    throw new ApiError(null, "NETWORK_ERROR", null);
+  }
+
+  const headerRequestId = response.headers.get("x-request-id");
+  if (!response.ok) {
+    throw await parseErrorResponse(response, headerRequestId);
+  }
+  return parseJsonBody<LogoutResponse>(response, headerRequestId);
+}
+
+export interface WalletResponse {
+  balances: Balance[];
+}
+
+export async function fetchWallet(
+  options: { signal?: AbortSignal; fetchImpl?: typeof fetch } = {},
+): Promise<ApiResult<WalletResponse>> {
+  const { signal, fetchImpl = fetch } = options;
+
+  let response: Response;
+  try {
+    response = await fetchImpl(`${API_BASE_URL}/api/wallet`, { credentials: "include", signal });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw error;
+    }
+    throw new ApiError(null, "NETWORK_ERROR", null);
+  }
+
+  const headerRequestId = response.headers.get("x-request-id");
+  if (!response.ok) {
+    throw await parseErrorResponse(response, headerRequestId);
+  }
+  return parseJsonBody<WalletResponse>(response, headerRequestId);
+}
+
+interface ErrorResponseBody {
+  error?: { code?: unknown; message?: unknown; requestId?: unknown; fields?: unknown };
+}
+
+// D-27: validates the optional fields member's shape (an object of string
+// values) before trusting it, the same discipline the surrounding parser
+// already applies to code/requestId. Any other shape (array, non-string
+// value, non-object) is treated as absent rather than partially trusted.
+function parseFields(raw: unknown): Record<string, string> | null {
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
+    return null;
+  }
+  const entries = Object.entries(raw as Record<string, unknown>);
+  if (entries.length === 0 || !entries.every(([, value]) => typeof value === "string")) {
+    return null;
+  }
+  return Object.fromEntries(entries) as Record<string, string>;
+}
+
+// D-09: error responses use { error: { code, message, requestId, fields? } }.
+// Falls back to a synthetic HTTP_<status> code (and the response header's
+// request id) when the body is missing, non-JSON, or lacks a string error.code.
 async function parseErrorResponse(
   response: Response,
   headerRequestId: string | null,
@@ -171,7 +294,8 @@ async function parseErrorResponse(
     if (typeof code === "string") {
       const requestId =
         typeof body.error?.requestId === "string" ? body.error.requestId : headerRequestId;
-      const apiError = new ApiError(response.status, code, requestId);
+      const fields = parseFields(body.error?.fields);
+      const apiError = new ApiError(response.status, code, requestId, fields);
       if (typeof body.error?.message === "string") {
         apiError.message = body.error.message;
       }
