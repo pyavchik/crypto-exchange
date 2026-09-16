@@ -117,6 +117,31 @@ describe("TradeView", () => {
     expect(freshMarkup).not.toContain('data-testid="stale-banner"');
   });
 
+  it("renders the prices-delayed banner when the markets payload is fresh but the chart payload is stale (WR-01)", () => {
+    const markup = renderTradeView(
+      defaultProps({
+        marketsState: marketsOk({ stale: false, fetchedAt: "2026-09-16T09:59:30.000Z" }),
+        chartState: {
+          kind: "ok",
+          data: {
+            id: "bitcoin",
+            window: "1d",
+            points: [{ time: 1_700_000_000, value: 100 }],
+            fetchedAt: "2026-09-16T09:40:00.000Z",
+            stale: true,
+          },
+        },
+      }),
+    );
+
+    expect(markup).toContain('data-testid="stale-banner"');
+    // The age phrase should reflect the older (chart) fetchedAt — 20 minutes
+    // before `now` — not the more flattering, fresher markets fetchedAt (30
+    // seconds before `now`).
+    expect(markup).toContain("20 minutes ago");
+    expect(markup).not.toContain("30 seconds ago");
+  });
+
   it("renders a CoinGecko credit naming it as the source of both the prices and the chart series", () => {
     const markup = renderTradeView(defaultProps());
     const lowered = markup.toLowerCase();

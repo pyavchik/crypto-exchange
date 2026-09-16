@@ -116,10 +116,24 @@ export function TradeView({
   const { fetchedAt, stale } = marketsState.data;
   const change = formatPercent(pair.change24hPct);
 
+  // WR-01: the chart payload has its own independent stale/fetchedAt pair
+  // (different TTL, fails independently of markets per D-38) — the banner
+  // must fire when EITHER resource is stale, and the age phrase must always
+  // use the older of the two available fetchedAt values so it's never more
+  // flattering than the staler of the two resources actually backing this
+  // page.
+  const chartFetchedAt = chartState.kind === "ok" ? chartState.data.fetchedAt : null;
+  const chartStale = chartState.kind === "ok" && chartState.data.stale;
+  const bannerStale = stale || chartStale;
+  const bannerFetchedAt =
+    chartFetchedAt !== null && Date.parse(chartFetchedAt) < Date.parse(fetchedAt)
+      ? chartFetchedAt
+      : fetchedAt;
+
   return (
     <section>
       <h1>Trade</h1>
-      <StaleBanner stale={stale} fetchedAt={fetchedAt} now={now} />
+      <StaleBanner stale={bannerStale} fetchedAt={bannerFetchedAt} now={now} />
       <h2 data-testid="trade-pair">{pair.pair}</h2>
       <p data-testid="trade-price">{formatPrice(pair.price)}</p>
       <p data-testid="trade-change" data-direction={change.direction}>
