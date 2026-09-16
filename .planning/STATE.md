@@ -2,18 +2,18 @@
 gsd_state_version: "1.0"
 current_phase: 3
 current_phase_name: Live Markets
-current_plan: 4
+current_plan: 5
 status: executing
-stopped_at: Completed 03-03-PLAN.md
-last_updated: "2026-09-16T11:05:08.670Z"
+stopped_at: Completed 03-04-PLAN.md
+last_updated: "2026-09-16T11:34:08.747Z"
 last_activity: 2026-09-16
 last_activity_desc: Phase 02 complete, transitioned to Phase 3
-state_head: d30d1e365150870f4eded554797831d4d6d0a787
+state_head: a89bead29222ae48e305aa74e2a9eede71a75d73
 progress:
   total_phases: 7
   completed_phases: 2
   total_plans: 21
-  completed_plans: 19
+  completed_plans: 20
   percent: 29
 ---
 
@@ -29,7 +29,7 @@ See: .planning/PROJECT.md (updated 2026-09-15)
 ## Current Position
 
 Phase: 3 — Live Markets
-Current Plan: 4
+Current Plan: 5
 Total Plans in Phase: 5
 Status: Ready to execute
 Last activity: 2026-09-16 — Phase 02 complete, transitioned to Phase 3
@@ -70,6 +70,7 @@ Progress: [███░░░░░░░] 29%
 | Phase 03-live-markets P01 | 36min | 3 tasks | 16 files |
 | Phase 03 P02 | ~50min | 3 tasks | 9 files |
 | Phase 03 P03 | 13min | 3 tasks | 12 files |
+| Phase 03-live-markets P04 | 50min | 3 tasks | 15 files |
 
 ## Accumulated Context
 
@@ -112,6 +113,9 @@ Recent decisions affecting current work:
 - [Phase 3]: Chart failures reuse MarketDataUpstreamError (same 502/UPSTREAM_UNAVAILABLE/.reason contract as markets) rather than a second error type
 - [Phase 3]: [Phase 3] createPoller<T> extracted as the single generic, receiver-safe polling primitive; healthPoller.ts and marketsPoller.ts are both thin wrappers over it
 - [Phase 3]: [Phase 3] scripts/smoke-dev.mjs markets-hit assertion loosened to 0-or-1 new hits (never 2+) since the new 30s FE poller can legitimately keep the server cache warm across an earlier section's wait
+- [Phase 3]: [Phase 3] PriceChart mounts only once the chart fetch first resolves (never during initial loading), so its chart-ready sentinel always reflects real drawn data
+- [Phase 3]: [Phase 3] Trade's chartState never resets to loading after its first success, keeping PriceChart mounted continuously across 1D/7D/30D window switches (D-37)
+- [Phase 3]: [Phase 3] Smoke script's canvas-leak check compares against a post-first-draw baseline count, not a hardcoded 1 - lightweight-charts composes several stacked canvases per chart instance
 
 ### Pending Todos
 
@@ -130,6 +134,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-09-16T11:05:08.590Z
-Stopped at: Completed 03-03-PLAN.md
+Last session: 2026-09-16T11:34:08.670Z
+Stopped at: Completed 03-04-PLAN.md
 Resume file: None

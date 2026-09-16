@@ -31,9 +31,9 @@ Tracks: **FE** = frontend (React+TS), **BE** = backend (Node+TS, SQLite), **QA**
 
 ### Market Data (DATA)
 
-- [ ] **DATA-01** [BE]: API proxies CoinGecko; the Demo API key is never sent to the browser
+- [x] **DATA-01** [BE]: API proxies CoinGecko; the Demo API key is never sent to the browser
 - [x] **DATA-02** [BE]: API caches market responses (TTL ≈ 30–60 s) so any number of clients stays within Demo rate limits
-- [ ] **DATA-03** [BE+FE]: On upstream 429/timeout the API serves last cached data flagged `stale: true`, and the UI shows a "prices delayed" banner
+- [x] **DATA-03** [BE+FE]: On upstream 429/timeout the API serves last cached data flagged `stale: true`, and the UI shows a "prices delayed" banner
 - [x] **DATA-04** [BE]: Tradable pairs are a curated list (e.g. top 20 by market cap) quoted in USDT
 
 ### Markets (MKT)
@@ -41,8 +41,8 @@ Tracks: **FE** = frontend (React+TS), **BE** = backend (Node+TS, SQLite), **QA**
 - [x] **MKT-01** [FE]: User can view a markets table: coin, last price, 24h change %, 24h volume, market cap
 - [x] **MKT-02** [FE]: User can search markets by name or symbol
 - [x] **MKT-03** [FE]: User can sort markets by price, 24h change and volume
-- [ ] **MKT-04** [FE]: User can open a pair's trade page showing a price chart (1D / 7D / 30D)
-- [ ] **MKT-05** [FE]: Prices auto-refresh without page reload and show "last updated" time; "Powered by CoinGecko" attribution visible
+- [x] **MKT-04** [FE]: User can open a pair's trade page showing a price chart (1D / 7D / 30D)
+- [x] **MKT-05** [FE]: Prices auto-refresh without page reload and show "last updated" time; "Powered by CoinGecko" attribution visible
 
 ### Wallet (WAL)
 
@@ -140,15 +140,15 @@ Deferred. Tracked but not in current roadmap.
 | AUTH-04 | Phase 2 | Complete |
 | AUTH-05 | Phase 2 | Complete |
 | QA-02 | Phase 2 | Complete |
-| DATA-01 | Phase 3 | Pending |
+| DATA-01 | Phase 3 | Complete |
 | DATA-02 | Phase 3 | Complete |
-| DATA-03 | Phase 3 | Pending |
+| DATA-03 | Phase 3 | Complete |
 | DATA-04 | Phase 3 | Complete |
 | MKT-01 | Phase 3 | Complete |
 | MKT-02 | Phase 3 | Complete |
 | MKT-03 | Phase 3 | Complete |
-| MKT-04 | Phase 3 | Pending |
-| MKT-05 | Phase 3 | Pending |
+| MKT-04 | Phase 3 | Complete |
+| MKT-05 | Phase 3 | Complete |
 | QA-03 | Phase 3 | Pending |
 | WAL-01 | Phase 4 | Pending |
 | WAL-02 | Phase 4 | Pending |
