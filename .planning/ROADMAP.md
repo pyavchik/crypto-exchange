@@ -11,7 +11,7 @@ Build a Binance-style paper-trading exchange as vertical slices — every featur
 - Integer phases (1, 2, 3): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
-- [ ] **Phase 1: Foundation & Project Memory** - Monorepo, CI, health + structured logs, LLM Wiki, test strategy
+- [x] **Phase 1: Foundation & Project Memory** - Monorepo, CI, health + structured logs, LLM Wiki, test strategy (completed 2026-09-16)
 - [ ] **Phase 2: Accounts** - Sign up / login / logout, per-user isolation, 10k USDT grant
 - [ ] **Phase 3: Live Markets** - CoinGecko proxy + cache + stale handling, markets table, trade page chart
 - [ ] **Phase 4: Wallet & Market Orders** - Balances, decimal-safe market buy/sell with fees and validation
@@ -202,7 +202,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation & Project Memory | 11/11 | In Progress|  |
+| 1. Foundation & Project Memory | 11/11 | Complete    | 2026-09-16 |
 | 2. Accounts | 0/3 | Not started | - |
 | 3. Live Markets | 0/3 | Not started | - |
 | 4. Wallet & Market Orders | 0/4 | Not started | - |
